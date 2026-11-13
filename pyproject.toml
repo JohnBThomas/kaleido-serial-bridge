@@ -1,0 +1,51 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "kaleido-serial-bridge"
+dynamic = ["version"]
+description = "Keeps the Bluetooth serial port of a Kaleido roaster open across Artisan sessions on macOS"
+readme = "README.md"
+license = { file = "LICENSE" }
+requires-python = ">=3.11"
+dependencies = [
+    "pyserial==3.5",
+    "pyobjc-core>=11; sys_platform == 'darwin'",
+    "pyobjc-framework-Cocoa>=11; sys_platform == 'darwin'",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8", "ruff", "mypy", "codespell", "types-pyserial", "pyinstaller>=6.10"]
+
+[project.scripts]
+kaleido-serial-bridge = "kaleido_serial_bridge.cli:main"
+
+[tool.setuptools.dynamic]
+version = { attr = "kaleido_serial_bridge.__version__" }
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra"
+
+[tool.ruff]
+line-length = 160
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "UP", "B", "A", "C4", "PIE", "RET", "SIM", "ARG", "PLE", "PLW"]
+ignore = ["E501", "E402", "SIM105", "PLW0603"]
+
+[tool.mypy]
+strict = true
+ignore_missing_imports = true
+files = ["src/kaleido_serial_bridge"]
+
+[[tool.mypy.overrides]]
+# objc.python_method and the Objective-C base classes of PyObjC carry no type information
+module = ["kaleido_serial_bridge.app", "kaleido_serial_bridge.ui"]
+disallow_untyped_decorators = false
+disallow_subclassing_any = false
