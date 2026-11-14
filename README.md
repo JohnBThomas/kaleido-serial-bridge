@@ -61,7 +61,15 @@ close it, so there is no second open.
 Hardware results and simulator results are kept apart. Details, with timelines:
 [docs/EVIDENCE.md](docs/EVIDENCE.md).
 
-**The signed download** — the disk image of the 0.2.0 release, signed with a Developer ID and
+**The signed download** — the disk image of the 0.2.1 release, signed with a Developer ID and
+notarized by Apple. The app in it has the CDHash `d26e1b222b2e6b76515ca169e244e37d760cbf13`. On
+one Kaleido M2 Lite, idle, with the heater off, on the build Mac: after the roaster had been
+unplugged and plugged in again, **Reset Bluetooth & Restart Bridge** brought live readings back,
+with Touch ID offered in macOS's authorization prompt, and Troubleshooting showed "Readings are
+back" only after replies arrived. **Check for Updates…** was tested on the first release candidate
+of 0.2.1. Not tested: anything with the heater on, another Mac or another roaster.
+
+**The previous download** — the disk image of the 0.2.0 release, signed with a Developer ID and
 notarized by Apple. The app in it has the CDHash `a9a59f259cc3528af70e43abbed537cb544186b0`.
 
 - Gatekeeper accepted the notarized disk image, and a quarantined copy of the app, on the Mac that
@@ -96,7 +104,7 @@ roaster idle, heater off:
 The bridge starting by itself was reported for the build `7630086f…` too, but the logs of that run
 show the bridge being started from the menu, so it counts as verified for the signed build only.
 
-**With a simulated roaster** — no hardware involved: 72 automated tests of the bridge, the status
+**With a simulated roaster** — no hardware involved: 156 automated tests of the bridge, the status
 logic and the app's menu, setup guide and alerts; a check that runs the packaged app by itself;
 and a run of unmodified Artisan 5.0.0 source through the prototype bridge.
 
@@ -306,8 +314,10 @@ on one Mac with one test build, from the menu bar and from the connection-loss a
 
 Turning Bluetooth off and on uses a function of macOS's IOBluetooth framework that Apple does not
 document (the one `blueutil` uses). If it is missing or has no effect, that step fails and the
-manual steps apply. **The guided recovery has been tested with a simulated macOS only; it has not
-been run on hardware.**
+manual steps apply. The guided recovery has been tested with a simulated macOS, and on hardware on
+one M2 Lite, idle, with the heater off, with notarized test builds; see
+[docs/EVIDENCE.md](docs/EVIDENCE.md). Two attempts with an early build failed at the power switch,
+which led to the fix described there.
 
 ## Switching back to direct Bluetooth
 

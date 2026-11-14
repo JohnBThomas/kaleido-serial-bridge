@@ -1,6 +1,14 @@
 # Changelog
 
-## 0.2.1 — release candidate, not published
+## 0.2.1 — 2026-11-14
+
+Offered as a disk image for Apple silicon, signed with a Developer ID and notarized by Apple: the
+second release candidate, app CDHash `d26e1b222b2e6b76515ca169e244e37d760cbf13`, tested on one
+M2 Lite, idle, heater off (see docs/EVIDENCE.md). With this build: a guided recovery after a loss
+of power reported "Readings are back" only after live replies; Help no longer showed an earlier
+success after a new connection loss; the administrator prompt offered Touch ID. Check for
+Updates… was tested on the first release candidate (`8ef1777d…`, the same update code) and showed
+"up to date" with 0.2.1 installed and 0.2.0 published.
 
 - **Check for Updates…** in the menu. One click asks GitHub, in the background and with a time
   limit of 10 s, for the latest published stable release of this repository, and compares its

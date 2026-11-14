@@ -81,7 +81,8 @@ once. It changes nothing about what the bridge forwards or how it stops:
 - Recovery counts only when replies from the roaster arrive through the bridge after the user
   clicks ON in Artisan.
 
-It has been tested with a simulated macOS and the simulated roaster only.
+It has been tested with a simulated macOS and the simulated roaster, and on hardware on one M2
+Lite, idle, with the heater off, with notarized test builds; see [EVIDENCE.md](EVIDENCE.md).
 
 ## Not verified
 

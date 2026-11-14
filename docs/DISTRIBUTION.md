@@ -133,12 +133,16 @@ has the CDHash `a9a59f259cc3528af70e43abbed537cb544186b0`.
   switches the Bluetooth power through `IOBluetoothPreferenceGetControllerPowerState` and
   `IOBluetoothPreferenceSetControllerPowerState`, functions of the IOBluetooth framework that Apple
   does not document. `Info.plist` carries a usage description in case macOS asks the user for
-  consent. Whether macOS asks for it when the recovery runs has not been observed yet.
+  consent. On the build Mac macOS asked for that consent once, the first time the recovery ran
+  (2026-11-14, logged as a Bluetooth permission prompt); later builds with the same signature did
+  not ask again.
 - **Hardened runtime and the guided recovery.** `packaging/entitlements.plist` carries
   `com.apple.security.device.bluetooth` for the power switch under the hardened runtime. The
   privileged step uses AppleScript's `do shell script … with administrator privileges` inside the
-  app (`NSAppleScript`). Neither has been run in a signed, notarized build; check both before a
-  release.
+  app (`NSAppleScript`). Both were run in notarized builds with the hardened runtime on
+  2026-11-14 (`3195ebea…`, `5bdc6388…`, `8ef1777d…` and `d26e1b22…`): the authorization dialog
+  appeared and offered Touch ID, and the power switch turned Bluetooth off and on. The comment in
+  `packaging/entitlements.plist` that calls this untested predates those runs.
 - **Stapling.** `packaging/notarize.sh` staples the ticket to the disk image. The app inside
   carries no ticket of its own, so a first launch on a Mac without a network connection has not
   been shown to work.

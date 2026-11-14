@@ -736,6 +736,39 @@ reported and what the logs confirm are kept apart.
 
 The stale "Readings are back" is a defect of this release candidate.
 
+### Release candidate 2 (`d26e1b22…`): the stale status fixed, guided recovery again
+
+One run, on 2026-11-14 between 09:38 and 09:44, with the signed, notarized second release
+candidate, commit `2fa2bf061f6718e4f6995d266fb58382a973140e` (disk image
+`KaleidoSerialBridge-0.2.1-rc2-068010783405-arm64.dmg`, SHA-256
+`15404f9c7142e64e0e0950493a9fa4add87702f15ebc63e0025a5ae9f205bf9a`). The installed app and the
+running process (pid 26987, started 09:38:38) have the code directory hash
+`d26e1b222b2e6b76515ca169e244e37d760cbf13`. M2 Lite idle, heater off; Artisan 5.0.0.
+
+| Time | Source | Event |
+|---|---|---|
+| 09:38:51 – 09:39:22 | app log, macOS log | guided recovery 1: authorization (Touch ID offered: "biometry prohibited 0", a Touch ID match started) succeeds at 09:38:54.1; service restarted, power cycle completed, bridge started at 09:39:06.822; Artisan ON at 09:39:21; "recovery succeeded" at 09:39:22.330 |
+| 09:42:07.136 | app log | "CONNECTION LOST during an active session"; exit code 4 at 09:42:07.143 |
+| 09:42:07.337 | app log | "recovery 1: its outcome is no longer current: the bridge has stopped since": the earlier "Readings are back" is cleared, before Help is opened |
+| 09:42:34.929 | app log | guided recovery 2 begun by the user |
+| 09:42:35.6 – 09:42:37.0 | macOS log | Touch ID offered again; the authorization succeeds at 09:42:37.047 |
+| 09:42:38.875 – 09:42:49.842 | app log | "Bluetooth service restarted", "Bluetooth power cycle completed", "bridge started"; one "real port … opened" at 09:42:49.830 |
+| 09:43:07, 09:43:10 | Artisan log | **OFF**, **ON** |
+| 09:43:10.091 | app log | session 1 attaches |
+| 09:43:10.828 | app log | "roaster replies received through the bridge; recovery succeeded"; 549 bytes of replies in the first 15 seconds, by the macOS log |
+
+| Check | Reported by the tester | Confirmed by the logs |
+|---|---|---|
+| Help after a new connection loss no longer shows the old "Readings are back" | the old message was gone | **Yes.** The earlier outcome was cleared at 09:42:07.337, 0.2 s after the stop and before recovery 2 |
+| The confirmation mentions Touch ID | it did | **Not in the logs** (the app does not log the text). The text is in this build's code |
+| The next recovery shows success only after live ET and BT return | it did | **Yes.** "Recovery succeeded" at 09:43:10.828, after Artisan's ON (09:43:10) and the attach (09:43:10.091); the bridge started 21 s earlier without a success being logged |
+| Touch ID in the administrator prompt | offered | Both prompts eligible for Touch ID, a Touch ID match started, and both authorizations succeeded. Which credential completed them is not in the log |
+| The stop behavior | not something the tester can see | **Unchanged.** The bridge closed the roaster's port and stopped |
+
+**Result, for build `d26e1b22…` only, in one run on one M2 Lite, idle, heater off: the stale
+status is fixed, and a guided recovery after a loss of power reported success only after live
+replies.** This disk image is the one proposed for the 0.2.1 release.
+
 ## Pending
 
 Hardware results exist for three packaged builds, two local ad hoc builds and the signed build:
