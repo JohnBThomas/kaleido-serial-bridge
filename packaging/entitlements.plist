@@ -5,5 +5,8 @@
     <!-- The embedded Python creates callbacks at run time (PyObjC, libffi). Required under the hardened runtime. -->
     <key>com.apple.security.cs.allow-unsigned-executable-memory</key>
     <true/>
+    <!-- The guided recovery switches the Bluetooth power when the user asks for it. Not yet tested in a signed build. -->
+    <key>com.apple.security.device.bluetooth</key>
+    <true/>
 </dict>
 </plist>

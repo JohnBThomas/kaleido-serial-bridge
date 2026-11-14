@@ -26,6 +26,7 @@ from . import APP_NAME, __version__, guide
 from .controller import BridgeController, Exit, State, Status
 from .engine import EXIT_ABRUPT, EXIT_OK, EXIT_SETUP, EXIT_UPSTREAM
 from .menu import Entry, menu_entries
+from .recovery import MacSystem, Phase, Recovery, System
 from .ui import HelpWindow, SettingsWindow, SetupGuide, copy_text, run_alert, state_symbol
 
 ACTIONS = {
@@ -50,6 +51,9 @@ class AppDelegate(NSObject):
         self.guide_window: Any = None
         self.settings_window: Any = None
         self.help_window: Any = None
+        self.recovery_system: System | None = None  # MacSystem on first use; replaced in tests
+        self.recovery: Recovery | None = None
+        self.recovery_told: tuple[int, Phase] | None = None  # the last outcome an alert was shown for
         self.timer: Any = None
         self.busy = False
         self.quit_requested = False
@@ -142,6 +146,8 @@ class AppDelegate(NSObject):
             event = self.controller.take_exit()
             if event is not None and event.code != EXIT_OK:
                 self.report_failure(event)
+            if self.recovery is not None and self.recovery.active:
+                self.advance_recovery()
         finally:
             self.busy = False
 
@@ -184,6 +190,48 @@ class AppDelegate(NSObject):
         if self.ask(status.headline, f'{event.reason}\n\n{guide.FAILURE_ADVICE[kind]}', ['OK', 'Help'], True) == 1:
             self.show_help()
 
+    # ---- guided Bluetooth recovery (one attempt per click, from the Help window)
+
+    @objc.python_method
+    def reset_bluetooth_and_restart(self) -> bool:
+        """Asks first, then begins one recovery attempt. Returns whether one began."""
+        if self.recovery is None:
+            self.recovery = Recovery(self.controller, self.recovery_system if self.recovery_system is not None else MacSystem())
+        if self.recovery.active:
+            return False  # one at a time; the button is off meanwhile
+        if self.controller.running():
+            self.ask('Stop the bridge first.', 'The recovery works only while the bridge is stopped, and it never stops the '
+                     'bridge itself. Click OFF in Artisan, then choose Stop Bridge in the menu.', ['OK'], False)
+            return False
+        message, text = guide.RECOVERY_CONFIRM
+        if self.ask(message, text, ['Cancel', 'Reset Bluetooth'], True) != 1:
+            return False
+        self.recovery.begin()
+        self.advance_recovery()
+        return True
+
+    @objc.python_method
+    def advance_recovery(self) -> None:
+        recovery = self.recovery
+        if recovery is None:
+            return
+        recovery.step()
+        progress = recovery.progress()
+        if self.help_window is not None:
+            self.help_window.update_recovery(progress)
+        self.refresh()
+        told = (progress.attempt, progress.phase)
+        if progress.phase in (Phase.IDLE, Phase.RUNNING) or told == self.recovery_told:
+            return
+        self.recovery_told = told
+        if progress.phase is Phase.WAITING_FOR_ARTISAN:
+            self.ask(*guide.RECOVERY_STARTED, ['OK'], False)
+        elif progress.phase is Phase.SUCCEEDED:
+            self.ask(*guide.RECOVERY_SUCCEEDED, ['OK'], False)
+        elif progress.phase is Phase.FAILED:
+            step = progress.step.value if progress.step is not None else 'Recovery'
+            self.ask(f'Recovery stopped at: {step}', f'{progress.detail}\n\n{guide.RECOVERY_MANUAL}', ['OK'], True)
+
     @objc.python_method
     def show_guide(self) -> None:
         if self.guide_window is None:
@@ -201,6 +249,7 @@ class AppDelegate(NSObject):
         if self.help_window is None:
             self.help_window = HelpWindow(self)
         self.help_window.show()
+        self.help_window.update_recovery(self.recovery.progress() if self.recovery is not None else None)
 
     def startBridge_(self, _sender: Any) -> None:  # noqa: N802
         self.start_bridge()

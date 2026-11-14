@@ -46,6 +46,7 @@ from . import APP_NAME, __version__, guide, loginitem
 from .controller import BridgeController, State, Status
 from .menu import SYMBOLS
 from .ports import Port, best_guess
+from .recovery import Phase, Progress
 
 WIDTH = 580.0
 MARGIN = 22.0
@@ -448,7 +449,26 @@ class HelpWindow:
         self.text.setDrawsBackground_(False)
         scroll.setDrawsBackground_(False)
         scroll.setHasVerticalScroller_(True)
-        self.window = make_window(f'{APP_NAME} Help', scroll, 560.0)
+        # one recovery attempt per click; the app asks for confirmation first (see AppDelegate.reset_bluetooth_and_restart)
+        self.reset_button = button(guide.RECOVERY_BUTTON, lambda _sender: app.reset_bluetooth_and_restart())
+        self.progress = label('', size=12.0, secondary=True)
+        content = stack([self.reset_button, self.progress, scroll], spacing=8.0)
+        NSLayoutConstraint.activateConstraints_([
+            scroll.widthAnchor().constraintEqualToAnchor_(content.widthAnchor()),
+            scroll.heightAnchor().constraintGreaterThanOrEqualToConstant_(380.0),
+        ])
+        self.window = make_window(f'{APP_NAME} Help', content, 620.0)
+
+    def update_recovery(self, progress: Progress | None) -> None:
+        """Shows how a recovery attempt is going. The button is off while one is under way."""
+        active = progress is not None and progress.phase in (Phase.RUNNING, Phase.WAITING_FOR_ARTISAN)
+        self.reset_button.setEnabled_(not active)
+        if progress is None or progress.phase is Phase.IDLE:
+            self.progress.setStringValue_('')
+        elif progress.phase is Phase.FAILED and progress.step is not None:
+            self.progress.setStringValue_(f'Stopped at "{progress.step.value}": {progress.detail}')
+        else:
+            self.progress.setStringValue_(progress.detail)
 
     def show(self) -> None:
         controller: BridgeController = self.app.controller

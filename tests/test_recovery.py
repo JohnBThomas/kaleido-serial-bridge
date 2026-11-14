@@ -1,0 +1,240 @@
+"""The guided Bluetooth recovery, against a simulated macOS and the simulated roaster.
+
+Nothing here touches Bluetooth or asks for a password: FakeSystem stands in for macOS (the
+authorization dialog, bluetoothd, the Bluetooth power switch and the roaster's serial port) and
+records what it was asked to do. The bridge itself is real, on the simulated roaster.
+"""
+
+# ruff: noqa: F811  # pytest fixtures imported from test_controller are named again as test arguments
+
+from __future__ import annotations
+
+import sys
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(ROOT / 'src'))
+sys.path.insert(0, str(ROOT / 'tools'))
+sys.path.insert(0, str(ROOT / 'tests'))
+
+from sim_roaster import SimRoaster  # noqa: E402
+from test_controller import Artisan, controller, fast_clocks, link, make, paths, sim, wait_for  # noqa: E402,F401  # fixtures
+
+from kaleido_serial_bridge import recovery as recovery_module  # noqa: E402
+from kaleido_serial_bridge.controller import BridgeController, State  # noqa: E402
+from kaleido_serial_bridge.recovery import Outcome, Phase, Recovery, Step  # noqa: E402
+
+
+class Clock:
+    def __init__(self) -> None:
+        self.now = 1000.0
+
+    def __call__(self) -> float:
+        return self.now
+
+    def advance(self, seconds: float) -> None:
+        self.now += seconds
+
+
+class FakeSystem:
+    """macOS as the recovery sees it. Each behaviour can be changed by a test."""
+
+    def __init__(self, clock: Clock) -> None:
+        self.clock = clock
+        self.calls: list[str] = []
+        self.restart = Outcome(True)
+        self.service_back_after = 0.5      # seconds after the restart; None: never
+        self.power = True
+        self.power_follows = True          # the switch takes effect
+        self.accept_power = True
+        self.port_back_after: float | None = 1.0  # seconds after Bluetooth is on again; None: never
+        self.restarted_at: float | None = None
+        self.on_at: float | None = None
+
+    def restart_service(self) -> Outcome:
+        self.calls.append('restart_service')
+        if self.restart.ok:
+            self.restarted_at = self.clock()
+        return self.restart
+
+    def service_running(self) -> bool:
+        return (self.restarted_at is not None and self.service_back_after is not None
+                and self.clock() - self.restarted_at >= self.service_back_after)
+
+    def power_state(self) -> bool | None:
+        return self.power if self.service_running() else None
+
+    def set_power(self, on: bool) -> bool:
+        self.calls.append(f'set_power({on})')
+        if not self.accept_power:
+            return False
+        if self.power_follows:
+            self.power = on
+            if on:
+                self.on_at = self.clock()
+        return True
+
+    def port_exists(self, path: str) -> bool:
+        return (self.on_at is not None and self.port_back_after is not None and self.clock() - self.on_at >= self.port_back_after
+                and Path(path).exists())
+
+
+def run(recovery: Recovery, clock: Clock, until: set[Phase], limit: float = 400.0, step: float = 0.5) -> None:
+    """Calls step() the way the app's timer does, every half second, until the attempt reaches one of these phases."""
+    waited = 0.0
+    while recovery.phase not in until and waited < limit:
+        recovery.step()
+        clock.advance(step)
+        waited += step
+    assert recovery.phase in until, f'still {recovery.phase} at {recovery.step_now}: {recovery.detail}'
+
+
+def make_recovery(controller: BridgeController) -> tuple[Recovery, FakeSystem, Clock]:
+    clock = Clock()
+    system = FakeSystem(clock)
+    return Recovery(controller, system, clock=clock), system, clock
+
+
+class TestOneAttempt:
+
+    def test_success_runs_the_sequence_once_and_waits_for_real_replies(self, controller: BridgeController, sim: SimRoaster) -> None:
+        recovery, system, clock = make_recovery(controller)
+        assert recovery.begin()
+        run(recovery, clock, {Phase.WAITING_FOR_ARTISAN, Phase.FAILED})
+        assert recovery.phase is Phase.WAITING_FOR_ARTISAN and recovery.step_now is Step.WAIT_REPLIES
+        assert system.calls == ['restart_service', 'set_power(False)', 'set_power(True)']  # in that order, each once
+        assert controller.running()
+        wait_for(lambda: sim.links() == ['up'], what='the port to be opened once')
+        # an open port is not a recovery: only replies count
+        recovery.step()
+        assert recovery.phase is Phase.WAITING_FOR_ARTISAN
+        artisan = Artisan(controller.virtual_port)
+        artisan.on()
+        assert artisan.ask('{[RD A0]}').startswith(b'{0,BT:')
+        wait_for(lambda: controller.poll().state is State.RECEIVING, what='replies to show')
+        recovery.step()
+        assert recovery.phase is Phase.SUCCEEDED and 'replies from the roaster are arriving' in recovery.detail
+        assert sim.links() == ['up']  # started once
+        artisan.off()
+
+    def test_bluetooth_stays_off_for_at_least_two_seconds(self, controller: BridgeController) -> None:
+        recovery, system, clock = make_recovery(controller)
+        recovery.begin()
+        run(recovery, clock, {Phase.WAITING_FOR_ARTISAN, Phase.FAILED}, step=0.1)
+        assert system.on_at is not None and recovery.off_at is not None
+        assert system.on_at - recovery.off_at >= recovery_module.POWER_OFF_HOLD
+
+    def test_authorization_cancelled_changes_nothing(self, controller: BridgeController, sim: SimRoaster) -> None:
+        recovery, system, clock = make_recovery(controller)
+        system.restart = Outcome(False, cancelled=True)
+        recovery.begin()
+        run(recovery, clock, {Phase.FAILED})
+        assert recovery.step_now is Step.RESTART_SERVICE
+        assert 'authorization was cancelled' in recovery.detail and 'Nothing was changed' in recovery.detail
+        assert system.calls == ['restart_service']  # Bluetooth was not switched
+        assert not controller.running() and sim.links() == []
+
+    def test_a_failed_restart_names_the_reason(self, controller: BridgeController) -> None:
+        recovery, system, clock = make_recovery(controller)
+        system.restart = Outcome(False, message='The administrator user name or password was incorrect')
+        recovery.begin()
+        run(recovery, clock, {Phase.FAILED})
+        assert recovery.step_now is Step.RESTART_SERVICE and 'password was incorrect' in recovery.detail
+        assert system.calls == ['restart_service'] and not controller.running()
+
+    def test_timeout_when_the_service_does_not_come_back(self, controller: BridgeController, sim: SimRoaster) -> None:
+        recovery, system, clock = make_recovery(controller)
+        system.service_back_after = None
+        recovery.begin()
+        run(recovery, clock, {Phase.FAILED})
+        assert recovery.step_now is Step.WAIT_SERVICE and f'within {recovery_module.SERVICE_TIMEOUT:.0f} s' in recovery.detail
+        assert system.calls == ['restart_service']
+        assert not controller.running() and sim.links() == []
+
+    def test_timeout_when_bluetooth_does_not_turn_off(self, controller: BridgeController) -> None:
+        recovery, system, clock = make_recovery(controller)
+        system.power_follows = False  # the private function had no effect
+        recovery.begin()
+        run(recovery, clock, {Phase.FAILED})
+        assert recovery.step_now is Step.WAIT_OFF
+        assert system.calls == ['restart_service', 'set_power(False)'] and not controller.running()
+
+    def test_power_switch_unavailable(self, controller: BridgeController) -> None:
+        recovery, system, clock = make_recovery(controller)
+        system.accept_power = False  # e.g. the function is missing on this macOS
+        recovery.begin()
+        run(recovery, clock, {Phase.FAILED})
+        assert recovery.step_now is Step.POWER_OFF and not controller.running()
+
+    def test_timeout_when_bluetooth_does_not_turn_on_again(self, controller: BridgeController) -> None:
+        recovery, system, clock = make_recovery(controller)
+        original = system.set_power
+
+        def stuck_off(on: bool) -> bool:
+            if on:
+                system.calls.append('set_power(True)')
+                return True  # accepted, but nothing happens
+            return original(on)
+        system.set_power = stuck_off  # type: ignore[method-assign]
+        recovery.begin()
+        run(recovery, clock, {Phase.FAILED, Phase.WAITING_FOR_ARTISAN})
+        assert recovery.phase is Phase.FAILED and recovery.step_now is Step.WAIT_ON and 'Control Center' in recovery.detail
+        assert not controller.running()
+
+    def test_missing_serial_port_times_out_and_the_bridge_is_not_started(self, controller: BridgeController, sim: SimRoaster) -> None:
+        recovery, system, clock = make_recovery(controller)
+        system.port_back_after = None  # macOS never creates the roaster's port again
+        recovery.begin()
+        run(recovery, clock, {Phase.FAILED, Phase.WAITING_FOR_ARTISAN})
+        assert recovery.phase is Phase.FAILED and recovery.step_now is Step.WAIT_PORT
+        assert f'did not appear within {recovery_module.PORT_TIMEOUT:.0f} s' in recovery.detail and sim.device in recovery.detail
+        assert not controller.running() and sim.links() == []
+
+    def test_no_replies_in_time_leaves_the_bridge_running(self, controller: BridgeController, sim: SimRoaster) -> None:
+        recovery, _system, clock = make_recovery(controller)
+        recovery.begin()
+        run(recovery, clock, {Phase.WAITING_FOR_ARTISAN})
+        run(recovery, clock, {Phase.FAILED})  # nobody clicks ON
+        assert recovery.step_now is Step.WAIT_REPLIES and 'still running' in recovery.detail
+        wait_for(lambda: sim.links() == ['up'], what='the port to be seen open')
+        assert controller.running() and sim.links() == ['up']  # not stopped by the recovery
+
+
+class TestGuards:
+
+    def test_a_running_bridge_is_never_touched(self, controller: BridgeController, sim: SimRoaster) -> None:
+        controller.start()
+        wait_for(lambda: sim.links() == ['up'])
+        recovery, system, clock = make_recovery(controller)
+        recovery.begin()
+        run(recovery, clock, {Phase.FAILED})
+        assert recovery.step_now is Step.CHECK_STOPPED and 'stop the bridge first' in recovery.detail
+        assert system.calls == []  # no password asked, Bluetooth not switched
+        assert controller.running() and sim.links() == ['up']  # and the bridge was left alone
+
+    def test_only_one_attempt_at_a_time(self, controller: BridgeController) -> None:
+        recovery, system, clock = make_recovery(controller)
+        assert recovery.begin()
+        assert not recovery.begin()  # a second click while one is under way does nothing
+        run(recovery, clock, {Phase.WAITING_FOR_ARTISAN})
+        assert not recovery.begin()  # still under way: waiting for replies
+        assert system.calls.count('restart_service') == 1 and recovery.attempts == 1
+
+    def test_a_new_attempt_after_a_failed_one(self, controller: BridgeController) -> None:
+        recovery, system, clock = make_recovery(controller)
+        system.restart = Outcome(False, cancelled=True)
+        recovery.begin()
+        run(recovery, clock, {Phase.FAILED})
+        system.restart = Outcome(True)
+        assert recovery.begin() and recovery.attempts == 2
+        run(recovery, clock, {Phase.WAITING_FOR_ARTISAN})
+        assert system.calls.count('restart_service') == 2
+
+    def test_nothing_happens_without_a_click(self, controller: BridgeController) -> None:
+        recovery, system, _clock = make_recovery(controller)
+        for _ in range(10):
+            recovery.step()
+        assert recovery.phase is Phase.IDLE and system.calls == []
+
+    def test_the_privileged_command_is_a_constant(self) -> None:
+        assert recovery_module.RESTART_COMMAND == '/usr/bin/pkill -x bluetoothd'

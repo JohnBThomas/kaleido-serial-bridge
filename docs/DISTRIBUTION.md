@@ -128,9 +128,17 @@ has the CDHash `a9a59f259cc3528af70e43abbed537cb544186b0`.
 - **Entitlements.** `packaging/entitlements.plist` allows unsigned executable memory, which the
   embedded Python needs for the callbacks PyObjC creates. If a notarized build crashes at launch
   with a code signing error, check Console for the entitlement it asks for before adding more.
-- **Bluetooth permission.** The app does not use Bluetooth APIs. It runs `system_profiler` to ask
-  whether the roaster is connected. `Info.plist` carries a usage description in case macOS asks
-  the user for consent; in the test runs no such request was logged.
+- **Bluetooth permission.** For its status display the app runs `system_profiler` to ask whether
+  the roaster is connected. The guided recovery (**Reset Bluetooth & Restart Bridge**) reads and
+  switches the Bluetooth power through `IOBluetoothPreferenceGetControllerPowerState` and
+  `IOBluetoothPreferenceSetControllerPowerState`, functions of the IOBluetooth framework that Apple
+  does not document. `Info.plist` carries a usage description in case macOS asks the user for
+  consent. Whether macOS asks for it when the recovery runs has not been observed yet.
+- **Hardened runtime and the guided recovery.** `packaging/entitlements.plist` carries
+  `com.apple.security.device.bluetooth` for the power switch under the hardened runtime. The
+  privileged step uses AppleScript's `do shell script … with administrator privileges` inside the
+  app (`NSAppleScript`). Neither has been run in a signed, notarized build; check both before a
+  release.
 - **Stapling.** `packaging/notarize.sh` staples the ticket to the disk image. The app inside
   carries no ticket of its own, so a first launch on a Mac without a network connection has not
   been shown to work.

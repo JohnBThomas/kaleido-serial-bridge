@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+- Guided Bluetooth recovery: a **Reset Bluetooth & Restart Bridge** button in the Help window (the
+  connection-loss alert's Help button opens it). After a confirmation that the roaster is switched
+  on, idle and its heater off, one click makes one attempt: restart the Bluetooth service (with
+  macOS's standard authorization dialog), turn Bluetooth off and on, wait for the roaster's serial
+  port, start the bridge once, and wait for real replies after the user clicks ON in Artisan.
+  Every wait has a limit; a cancelled authorization or a failed step stops the attempt, names the
+  step and shows the manual steps. It refuses to run while the bridge is running; the stop after a
+  connection loss is unchanged. The power switch uses an undocumented IOBluetooth function.
+  **Tested with a simulated macOS only; not yet run on hardware or in a signed build.**
 - The alert for a session that ends without `CL AR` now reads "Connection lost during an active
   session. The bridge stopped." instead of "Artisan vanished mid-session". The bridge sees only
   that Artisan's virtual port closed during a session; it cannot tell a crash from Artisan giving
@@ -16,7 +25,7 @@
   reconnect. In both observed idle power-loss tests on one M2 Lite, a start of the bridge alone got
   no replies, and a manual Bluetooth reset (restart of the Bluetooth service, then Bluetooth off and
   on) followed by a new start of the bridge restored readings. Two tests on one roaster are not a
-  guarantee. The reset stays manual: the app does not reset Bluetooth or reconnect by itself.
+  guarantee. The app does not reset Bluetooth or reconnect by itself.
 - docs/EVIDENCE.md records two idle power-loss tests: the first with the signed 0.2.0 build, which
   showed the old wording, and a repeat from source at commit `f1825c9`, which showed the new one.
   In both, a start of the bridge without a Bluetooth reset got no replies, and a start after the

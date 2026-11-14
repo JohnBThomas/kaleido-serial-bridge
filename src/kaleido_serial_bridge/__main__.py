@@ -32,6 +32,8 @@ def selftest() -> int:
     missing = [state.value for state in State if state_symbol(state, '') is None]
     print('menu bar symbols:', 'all available' if not missing else f'MISSING for {missing}')
     print('login item service:', loginitem.state())
+    from .recovery import parts_available  # pylint: disable=import-outside-toplevel
+    print('guided recovery:', parts_available())
     return 1 if missing else 0
 
 

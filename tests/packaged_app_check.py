@@ -108,6 +108,8 @@ def main() -> int:
     check(done.returncode == 0 and 'bundled: True' in done.stdout, 'self-test passes with an empty environment')
     check(str(app) in done.stdout and '.venvs' not in done.stdout and 'site-packages' not in done.stdout, 'code is loaded from inside the app bundle only')
     check('login item service: not queried' in done.stdout, 'the self-test does not ask the login item service')
+    check('guided recovery: IOBluetoothPreferenceGetControllerPowerState found, IOBluetoothPreferenceSetControllerPowerState found, '
+          'NSAppleScript found' in done.stdout, 'the bundled app can reach the Bluetooth power switch and the authorization dialog (looked up, not called)')
     screens = home / 'screens'
     done = subprocess.run([str(binary), '--render-screens', str(screens)], env=environment, capture_output=True, text=True, timeout=60, check=False)
     check(done.returncode == 0 and len(list(screens.glob('*.png'))) == 6, 'the setup guide and settings windows can be built inside the bundle')

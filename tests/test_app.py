@@ -481,3 +481,120 @@ class TestLoginItemOptOut:
         settings.login.setState_(0)
         settings.toggle_login(settings.login)
         assert service.registered == [False] and service.calls > 0
+
+
+class TestGuidedRecovery:
+    """The Help window's recovery button, driven like the app does: a confirmation, then one step per tick."""
+
+    @pytest.fixture
+    def system(self, monkeypatch: pytest.MonkeyPatch) -> Any:
+        from test_recovery import FakeSystem  # pylint: disable=import-outside-toplevel
+        from kaleido_serial_bridge import recovery as recovery_module  # pylint: disable=import-outside-toplevel
+        monkeypatch.setattr(recovery_module, 'POWER_OFF_HOLD', 0.05)
+        monkeypatch.setattr(recovery_module, 'SERVICE_TIMEOUT', 0.5)
+        monkeypatch.setattr(recovery_module, 'PORT_TIMEOUT', 0.5)
+        fake = FakeSystem(time.monotonic)  # type: ignore[arg-type]
+        fake.service_back_after = 0.0
+        fake.port_back_after = 0.0
+        return fake
+
+    @staticmethod
+    def after_connection_loss(launch: Callable[[], Any], sim: SimRoaster, system: Any) -> Any:
+        """The situation the button is for: the bridge stopped itself, the alert's Help button was clicked."""
+        delegate = launch()
+        delegate.recovery_system = system
+        complete_setup(delegate, sim)
+        artisan = Artisan(delegate.controller.virtual_port)
+        artisan.on()
+        artisan.vanish()
+        wait_for(lambda: not delegate.controller.running(), what='the bridge to stop')
+        delegate.ask.answers = [1]  # Help
+        delegate.tick_(None)
+        assert delegate.ask.shown[-1][0] == 'Connection lost during an active session. The bridge stopped.'
+        assert delegate.help_window is not None and bool(delegate.help_window.reset_button.isEnabled())
+        assert str(delegate.help_window.reset_button.title()) == 'Reset Bluetooth & Restart Bridge'
+        delegate.ask.shown.clear()
+        return delegate
+
+    @staticmethod
+    def tick_until(delegate: Any, condition: Callable[[], bool], what: str) -> None:
+        deadline = time.time() + 10
+        while time.time() < deadline and not condition():
+            delegate.tick_(None)
+            time.sleep(0.02)
+        assert condition(), f'timed out waiting for {what}'
+
+    def test_cancel_at_the_confirmation_does_nothing(self, launch: Callable[[], Any], sim: SimRoaster, system: Any) -> None:
+        delegate = self.after_connection_loss(launch, sim, system)
+        delegate.ask.answers = [0]  # Cancel
+        assert not delegate.reset_bluetooth_and_restart()
+        message, text, buttons, _ = delegate.ask.shown[-1]
+        assert message == 'Reset Bluetooth and restart the bridge?' and buttons == ['Cancel', 'Reset Bluetooth']
+        assert 'switched on again, idle' in text and 'heater is off' in text
+        assert 'administrator password' in text and 'keyboards, mice' in text
+        for _ in range(5):
+            delegate.tick_(None)
+        assert system.calls == [] and not delegate.controller.running()
+
+    def test_success_one_attempt_then_real_replies(self, launch: Callable[[], Any], sim: SimRoaster, system: Any) -> None:
+        delegate = self.after_connection_loss(launch, sim, system)
+        delegate.ask.answers = [1]  # Reset Bluetooth
+        assert delegate.reset_bluetooth_and_restart()
+        assert not bool(delegate.help_window.reset_button.isEnabled())  # no second attempt meanwhile
+        self.tick_until(delegate, lambda: any(m == 'The bridge has started.' for m, *_ in delegate.ask.shown), 'the prompt to click ON')
+        assert system.calls == ['restart_service', 'set_power(False)', 'set_power(True)']
+        assert delegate.controller.running() and 'click ON' in str(delegate.help_window.progress.stringValue())
+        shown = len(delegate.ask.shown)
+        assert not delegate.reset_bluetooth_and_restart()  # a second click while waiting: ignored, not even asked
+        assert len(delegate.ask.shown) == shown
+        artisan = Artisan(delegate.controller.virtual_port)
+        artisan.on()
+        assert artisan.ask('{[RD A0]}').startswith(b'{0,BT:')
+        self.tick_until(delegate, lambda: any(m == 'Readings are back.' for m, *_ in delegate.ask.shown), 'the success message')
+        assert bool(delegate.help_window.reset_button.isEnabled())
+        assert sim.links() == ['up', 'down', 'up']  # the stop after the loss, then one new open
+        assert [m for m, *_ in delegate.ask.shown] == ['Reset Bluetooth and restart the bridge?', 'The bridge has started.', 'Readings are back.']
+        artisan.off()
+
+    def test_authorization_denied_names_the_step_and_offers_manual_steps(self, launch: Callable[[], Any], sim: SimRoaster, system: Any) -> None:
+        from kaleido_serial_bridge.recovery import Outcome  # pylint: disable=import-outside-toplevel
+        system.restart = Outcome(False, cancelled=True)
+        delegate = self.after_connection_loss(launch, sim, system)
+        delegate.ask.answers = [1]
+        delegate.reset_bluetooth_and_restart()
+        self.tick_until(delegate, lambda: any(m.startswith('Recovery stopped at') for m, *_ in delegate.ask.shown), 'the failure')
+        message, text, _, critical = delegate.ask.shown[-1]
+        assert message == 'Recovery stopped at: Restart the Bluetooth service' and critical
+        assert 'authorization was cancelled' in text and guide.RECOVERY_MANUAL in text and 'sudo pkill -x bluetoothd' in text
+        assert 'Stopped at "Restart the Bluetooth service"' in str(delegate.help_window.progress.stringValue())
+        assert system.calls == ['restart_service'] and not delegate.controller.running()
+        assert bool(delegate.help_window.reset_button.isEnabled())  # another attempt is possible
+        count = len(delegate.ask.shown)
+        for _ in range(5):
+            delegate.tick_(None)
+        assert len(delegate.ask.shown) == count  # told once
+
+    def test_missing_port_names_the_step(self, launch: Callable[[], Any], sim: SimRoaster, system: Any) -> None:
+        system.port_back_after = None
+        delegate = self.after_connection_loss(launch, sim, system)
+        delegate.ask.answers = [1]
+        delegate.reset_bluetooth_and_restart()
+        self.tick_until(delegate, lambda: any(m.startswith('Recovery stopped at') for m, *_ in delegate.ask.shown), 'the failure')
+        message, text, _, _ = delegate.ask.shown[-1]
+        assert message == "Recovery stopped at: Wait for the roaster's serial port" and 'did not appear' in text
+        assert not delegate.controller.running()
+
+    def test_a_running_bridge_is_not_reset(self, launch: Callable[[], Any], sim: SimRoaster, system: Any) -> None:
+        delegate = launch()
+        delegate.recovery_system = system
+        complete_setup(delegate, sim)
+        delegate.controller.start()
+        assert not delegate.reset_bluetooth_and_restart()
+        assert delegate.ask.shown[-1][0] == 'Stop the bridge first.' and len(delegate.ask.shown) == 1  # no confirmation offered
+        assert system.calls == [] and delegate.controller.running()
+
+    def test_help_mentions_the_button(self) -> None:
+        stops = {topic.title: topic.body for topic in guide.help_topics('/dev/cu.Roaster_SRSv6')}['When the bridge stops by itself']
+        assert '"Reset Bluetooth & Restart Bridge"' in stops and 'one attempt per click' in stops
+        assert 'does not work while the bridge is running' in stops
+        assert 'The bridge does not reset Bluetooth, reopen the port or start again on its own.' in stops

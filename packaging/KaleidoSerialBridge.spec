@@ -46,8 +46,9 @@ app = BUNDLE(
         'LSApplicationCategoryType': 'public.app-category.utilities',
         'NSHighResolutionCapable': True,
         'NSHumanReadableCopyright': 'MIT License. Not affiliated with Kaleido or the Artisan project.',
-        # The app does not use Bluetooth itself. It asks macOS (system_profiler) whether the roaster is connected;
+        # For its status the app asks macOS (system_profiler) whether the roaster is connected; the guided recovery
+        # turns Bluetooth off and on when the user asks for it;
         # should macOS want consent for that, this is the reason it shows.
-        'NSBluetoothAlwaysUsageDescription': 'Kaleido Serial Bridge asks macOS whether the roaster is connected, to show its status. It does not use Bluetooth itself.',
+        'NSBluetoothAlwaysUsageDescription': 'Kaleido Serial Bridge asks macOS whether the roaster is connected, to show its status, and turns Bluetooth off and on when you ask it to reset Bluetooth.',
     },
 )

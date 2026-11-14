@@ -229,8 +229,8 @@ restart of the Mac. Waiting did not help there, and neither did clicking ON agai
    Bluetooth" for more than a minute, stop the bridge and restart the Mac once more.
 5. In Artisan, click ON.
 
-No reset is known to bring the connection back every time. The app never resets Bluetooth and
-never reopens the port on its own.
+No reset is known to bring the connection back every time. The app never resets Bluetooth on its
+own and never reopens the port on its own.
 
 ## Manual recovery: after the bridge stopped by itself
 
@@ -262,6 +262,31 @@ Then:
 
 The app does not reset Bluetooth, reopen the port or start again by itself.
 
+### Guided recovery: Reset Bluetooth & Restart Bridge
+
+Steps 3 and 4 can also be done from the app. The Help window (the alert's **Help** button, or
+Help in the menu) has a **Reset Bluetooth & Restart Bridge** button. It works only while the
+bridge is stopped, and it never stops a running bridge. One click makes one attempt:
+
+1. It asks you to confirm that the roaster is switched on again, idle, and that its heater is off,
+   and says that every Bluetooth device of the Mac disconnects for a few seconds.
+2. It restarts the Bluetooth service. macOS shows its standard authorization dialog; only this
+   one command (`/usr/bin/pkill -x bluetoothd`) runs with administrator rights. The app itself
+   keeps running as you.
+3. It waits for the service, turns Bluetooth off, waits two seconds, and turns it on again.
+4. It waits for the roaster's serial port to appear, then starts the bridge once.
+5. It asks you to click **ON** in Artisan, and reports success only when replies from the roaster
+   arrive through the bridge.
+
+Every wait has a time limit. If the authorization is cancelled or a step fails or times out, the
+attempt stops there, names the step, and shows the manual steps above; the bridge is not started
+after a failed step. A second click while an attempt is under way does nothing.
+
+Turning Bluetooth off and on uses a function of macOS's IOBluetooth framework that Apple does not
+document (the one `blueutil` uses). If it is missing or has no effect, that step fails and the
+manual steps apply. **The guided recovery has been tested with a simulated macOS only; it has not
+been run on hardware.**
+
 ## Switching back to direct Bluetooth
 
 1. In Artisan, click OFF.
@@ -280,7 +305,8 @@ The app does not reset Bluetooth, reopen the port or start again by itself.
 - It never sends anything of its own to the roaster. It never answers Artisan for the roaster,
   never repeats a command, and never keeps the roaster's safety guard alive when Artisan is gone.
 - It opens the roaster's port once per start and never reopens it. It never changes Bluetooth
-  settings and never resets Bluetooth.
+  settings. It resets Bluetooth only when you click **Reset Bluetooth & Restart Bridge**, confirm,
+  and authorize the restart of the Bluetooth service; never by itself.
 - One Artisan at a time: a second one gets "Could not exclusively lock port".
 - If Artisan **crashes or is force quit while connected**, the bridge closes the roaster's port
   and stops, so that the roaster sees the link drop as it would without the bridge. An alert says
@@ -316,7 +342,7 @@ Nothing else is installed.
 ## For developers
 
 ```
-python -m pytest                              # 79 tests against a simulated roaster, about 30 s
+python -m pytest                              # 100 tests against a simulated roaster, about 35 s
 ruff check . && mypy && codespell
 packaging/build.sh
 python tests/packaged_app_check.py "$TMPDIR/kaleido-serial-bridge-build/dist/Kaleido Serial Bridge.app"

@@ -76,8 +76,8 @@ def help_topics(device: str) -> list[Topic]:
               '4.  Start the bridge and wait for "Waiting for Artisan". If the menu stays at "Waiting for Bluetooth" for more '
               'than a minute, stop the bridge and restart the Mac once more.\n'
               '5.  In Artisan, click ON.\n\n'
-              'No reset is known to bring the connection back every time. The bridge never resets Bluetooth and never reopens '
-              'the port on its own.'),
+              'No reset is known to bring the connection back every time. The bridge never resets Bluetooth on its own and never '
+              'reopens the port on its own.'),
         Topic('Back to direct Bluetooth',
               '1.  In Artisan, click OFF.\n'
               '2.  Stop the bridge. This closes the roaster\'s port.\n'
@@ -105,6 +105,9 @@ def help_topics(device: str) -> list[Topic]:
               'again. Two tests on one roaster are not a guarantee.\n'
               '4.  Start the bridge and wait for "Waiting for Artisan".\n'
               '5.  In Artisan, click ON.\n\n'
+              f'Instead of steps 3 and 4 you can click "{RECOVERY_BUTTON}" at the top of this window. It asks you first, '
+              'needs an administrator password for the restart of the Bluetooth service, and makes one attempt per click. '
+              'It does not work while the bridge is running.\n\n'
               'The bridge does not reset Bluetooth, reopen the port or start again on its own.'),
         Topic('What the bridge does and does not do',
               'It passes bytes between Artisan and the roaster unchanged, including Artisan\'s own safety commands. '
@@ -114,6 +117,37 @@ def help_topics(device: str) -> list[Topic]:
               'the Bluetooth link is lost while it is heating has not been verified, with or without the bridge. '
               'The bridge is not a safety device and is not meant for unattended operation. Stay with the roaster while it is hot.'),
     ]
+
+
+RECOVERY_BUTTON = 'Reset Bluetooth & Restart Bridge'
+
+RECOVERY_CONFIRM = (
+    'Reset Bluetooth and restart the bridge?',
+    'Before you continue, check that the roaster is switched on again, idle, and that its heater is off.\n\n'
+    'This makes one attempt:\n'
+    '1.  restart the Bluetooth service of macOS. macOS asks for an administrator password for this step.\n'
+    '2.  turn Bluetooth off, and on again two seconds later\n'
+    "3.  wait for the roaster's serial port, then start the bridge once\n\n"
+    'Every Bluetooth device of this Mac disconnects for a few seconds: keyboards, mice, trackpads and headphones '
+    'included. They usually reconnect by themselves.\n\n'
+    'This sequence restored readings in the idle power-loss tests on one M2 Lite. It is not a guarantee.')
+
+RECOVERY_STARTED = (
+    'The bridge has started.',
+    'In Artisan, click ON now. The recovery counts as done only when replies from the roaster arrive through the bridge.')
+
+RECOVERY_SUCCEEDED = (
+    'Readings are back.',
+    'Replies from the roaster are arriving through the bridge.')
+
+RECOVERY_MANUAL = (
+    'To do it by hand:\n'
+    '1.  In Artisan, click OFF. Stop the bridge if it is running.\n'
+    '2.  Check that the roaster is switched on, idle, and that its heater is off.\n'
+    '3.  In Terminal, run "sudo pkill -x bluetoothd" and wait until Bluetooth is back.\n'
+    '4.  Turn Bluetooth off in Control Center, wait two seconds, and turn it on again.\n'
+    '5.  Start the bridge and wait for "Waiting for Artisan". Then click ON in Artisan.\n\n'
+    'If that does not bring replies back, restart the Mac and start the bridge again.')
 
 
 STOP_WHILE_ATTACHED = (

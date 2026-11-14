@@ -21,7 +21,8 @@ each situation, with a direct Bluetooth connection and through the bridge.
 3. Whatever arrives from the roaster while no client is attached, or before a new client has sent
    its first byte, is discarded. Commands a client had queued but that were not delivered when it
    went away are discarded.
-4. The roaster's port is opened once per start and never reopened. Bluetooth is never reset.
+4. The roaster's port is opened once per start and never reopened. The bridge never resets
+   Bluetooth. The app resets it only when the user asks for it (see below).
 5. It watches which commands were delivered, for one purpose: to know whether Artisan left a
    session open at the roaster. `PI`, `TU` and `RD` only read; any other command opens a session;
    `CL AR` ends it.
@@ -62,6 +63,25 @@ The command line bridge has an option to keep the link instead (`--keep-link-on-
 The app does not offer it.
 
 A hung Artisan (third row) is the one case the bridge can neither improve nor worsen.
+
+### Guided Bluetooth recovery
+
+The Help window's **Reset Bluetooth & Restart Bridge** button restarts the Bluetooth service of
+macOS, turns Bluetooth off and on, waits for the roaster's serial port, and starts the bridge
+once. It changes nothing about what the bridge forwards or how it stops:
+
+- It runs only after a click and a confirmation that the roaster is switched on, idle, and that
+  its heater is off. Nothing starts it by itself, and it makes one attempt per click.
+- It refuses to run while the bridge is running, so it never cuts off a connected Artisan. After
+  a connection loss the bridge has already stopped, as before.
+- The restart of the Bluetooth service needs administrator rights. macOS's own authorization
+  dialog asks for them, and only the fixed command `/usr/bin/pkill -x bluetoothd` runs as root.
+- Every Bluetooth device of the Mac disconnects for a few seconds.
+- If a step fails, the attempt stops there and the bridge is not started.
+- Recovery counts only when replies from the roaster arrive through the bridge after the user
+  clicks ON in Artisan.
+
+It has been tested with a simulated macOS and the simulated roaster only.
 
 ## Not verified
 
