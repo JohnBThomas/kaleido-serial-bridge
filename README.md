@@ -66,8 +66,12 @@ notarized by Apple. The app in it has the CDHash `a9a59f259cc3528af70e43abbed537
 
 - Gatekeeper accepted the notarized disk image, and a quarantined copy of the app, on the Mac that
   built them. The notarization ticket is stapled to the disk image.
-- Not tested: installation on a second Mac, a first launch without a network connection, and
-  operation with a roaster. None of the hardware results below was obtained with this build.
+- On one Kaleido M2 Lite, idle, with the heater off, on the build Mac: the app opened at login,
+  the bridge started by itself, live readings arrived, and they returned after **OFF → ON**
+  through one open of the physical port. The logs confirm each of these.
+- Pending: **⌘Q → relaunch → ON** with this build. The tester reports that readings returned; the
+  logs show the quit but no relaunch.
+- Not tested: installation on a second Mac, and a first launch without a network connection.
 
 **On hardware** — one Kaleido M2 Lite, one Apple silicon MacBook Pro, macOS 27.2, Artisan 5.0.0,
 roaster idle, heater off:
@@ -89,9 +93,8 @@ roaster idle, heater off:
     and the logs confirm each: replies returned every time, through one open of the physical port
     and one Bluetooth connection.
 
-**Pending on hardware:** the bridge starting by itself when the app opens. The tester reports that
-it did with the build `7630086f…`, but the logs of that run show the bridge being started from the
-menu, so it is not counted as verified.
+The bridge starting by itself was reported for the build `7630086f…` too, but the logs of that run
+show the bridge being started from the menu, so it counts as verified for the signed build only.
 
 **With a simulated roaster** — no hardware involved: 72 automated tests of the bridge, the status
 logic and the app's menu, setup guide and alerts; a check that runs the packaged app by itself;
@@ -102,8 +105,7 @@ and a run of unmodified Artisan 5.0.0 source through the prototype bridge.
 - other Kaleido models, other Macs and other macOS versions
 - behavior during an Artisan crash or a loss of the Bluetooth link **while the roaster is heating**
 - the Bluetooth link staying up for hours with no Artisan attached
-- the signed download on a second Mac, its first launch without a network connection, and its
-  operation with a roaster
+- the signed download on a second Mac, and its first launch without a network connection
 
 ## Requirements
 
@@ -184,17 +186,17 @@ can tell the roaster that it is leaving. Click OFF in Artisan first.
 
 - **Roaster's serial port** — can be changed while the bridge is stopped.
 - **Start the bridge when the app opens** — off by default. Starting opens the Bluetooth port, and
-  that should happen when you intend it. Confirmed with the simulator only; on hardware it is
-  still pending (see [Evidence](#evidence)).
-- **Open the app at login** — off by default. It worked on hardware with one ad hoc build; a build
-  with another signature needs its own test. It uses the login item service of macOS; the app then
+  that should happen when you intend it. Confirmed with the simulator, and on hardware
+  with the signed build (see [Evidence](#evidence)).
+- **Open the app at login** — off by default. It worked on hardware with one ad hoc build and
+  with the signed build. It uses the login item service of macOS; the app then
   appears in **System Settings » General » Login Items**. This opens the app and nothing more: the
   bridge starts at login only if the option above is on as well.
 
 ### Using it
 
 On the tested setup the sequence that worked was: restart the Mac, start the bridge once, wait for
-"Waiting for Artisan", then use Artisan as usual. Three of the four starts that directly followed a
+"Waiting for Artisan", then use Artisan as usual. Four of the five starts that directly followed a
 restart connected; one did not, and the next start after one more restart did. Stopping the
 bridge closes the roaster's port. On that setup the opens of the port that followed got no
 replies, including opens after a restart of the Bluetooth service or after turning Bluetooth off
@@ -213,7 +215,7 @@ restart of the Mac. Waiting did not help there, and neither did clicking ON agai
 1. In Artisan, click OFF.
 2. Stop the bridge.
 3. Reset Bluetooth yourself. Restarting the Mac is the reset that helped on the tested setup, but
-   not every time: three of the four starts that directly followed a restart connected, and the
+   not every time: four of the five starts that directly followed a restart connected, and the
    one that did not was followed by a connection after one more restart. Restarting the Bluetooth
    service in Terminal with `sudo pkill -x bluetoothd` was followed by a connection once, with
    Artisan connected directly, and by silent starts of the bridge twice. Turning Bluetooth off and

@@ -116,7 +116,7 @@ has the CDHash `a9a59f259cc3528af70e43abbed537cb544186b0`.
 | `shasum -a 256 -c SHA256SUMS.txt` | OK |
 | Installation on a second Mac | **not tested** |
 | First launch without a network connection | **not tested** |
-| Operation with a roaster | **not tested** with this build. See [EVIDENCE.md](EVIDENCE.md) for the builds that were |
+| Operation with a roaster | one M2 Lite, idle, heater off, on the build Mac: opening at login, automatic bridge start, live readings and OFF → ON confirmed by the logs. ⌘Q → relaunch → ON is pending. See [EVIDENCE.md](EVIDENCE.md) |
 
 ## Notes
 

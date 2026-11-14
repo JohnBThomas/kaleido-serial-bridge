@@ -7,9 +7,11 @@ signed with a Developer ID and notarized by Apple.
 
 - The signed disk image (app CDHash `a9a59f259cc3528af70e43abbed537cb544186b0`): Gatekeeper
   accepted the notarized disk image and a quarantined copy of the app on the build Mac, and the
-  ticket is stapled to the disk image. Not tested: installation on a second Mac, a first launch
-  without a network connection, and operation with a roaster. The hardware results further down
-  belong to earlier ad hoc builds, not to this one.
+  ticket is stapled to the disk image. On one M2 Lite, idle, heater off: the app opened at login, the
+  bridge started by itself, live readings arrived, and they returned after OFF → ON, each confirmed
+  by the logs. ⌘Q → relaunch → ON was reported but is not confirmed by the logs; it stays pending.
+  Not tested: installation on a second Mac and a first launch without a network connection. The
+  hardware results further down belong to earlier ad hoc builds.
 - Menu bar status: stopped, waiting for Bluetooth, waiting for Artisan, Artisan attached and
   waiting for the first reply, receiving roaster replies, no replies, stopped after a failure.
   Communication is shown only for replies that were actually forwarded to Artisan.
