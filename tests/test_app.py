@@ -483,8 +483,27 @@ class TestLoginItemOptOut:
         assert service.registered == [False] and service.calls > 0
 
 
+
+class Sheets:
+    """Stands in for the user at every sheet: records it and clicks the scripted button."""
+
+    def __init__(self) -> None:
+        self.shown: list[tuple[Any, str, str, list[str]]] = []
+        self.critical: list[bool] = []
+        self.answers: list[int] = []
+
+    def __call__(self, window: Any, message: str, text: str, buttons: list[str], completion: Callable[[int], None],
+                 critical: bool = False) -> None:
+        self.shown.append((window, message, text, buttons))
+        self.critical.append(critical)
+        completion(self.answers.pop(0) if self.answers else 0)
+
+
 class TestGuidedRecovery:
-    """The Help window's recovery button, driven like the app does: a confirmation, then one step per tick."""
+    """The Help window's recovery button: a sheet to confirm, then one step per tick, shown in the Help window only.
+
+    After the confirmation nothing may pull the user away from Artisan: no alert, no activation of the app, and the
+    Help window is not brought forward (it stays hidden here, since the tests never show it)."""
 
     @pytest.fixture
     def system(self, monkeypatch: pytest.MonkeyPatch) -> Any:
@@ -498,11 +517,19 @@ class TestGuidedRecovery:
         fake.port_back_after = 0.0
         return fake
 
+    @pytest.fixture
+    def activations(self, monkeypatch: pytest.MonkeyPatch) -> list[str]:
+        seen: list[str] = []
+        monkeypatch.setattr(ui, 'activate_app', lambda: seen.append('activate'))
+        monkeypatch.setattr(app_module, 'activate_app', lambda: seen.append('activate'))
+        return seen
+
     @staticmethod
     def after_connection_loss(launch: Callable[[], Any], sim: SimRoaster, system: Any) -> Any:
         """The situation the button is for: the bridge stopped itself, the alert's Help button was clicked."""
         delegate = launch()
         delegate.recovery_system = system
+        delegate.sheet = Sheets()
         complete_setup(delegate, sim)
         artisan = Artisan(delegate.controller.virtual_port)
         artisan.on()
@@ -511,9 +538,11 @@ class TestGuidedRecovery:
         delegate.ask.answers = [1]  # Help
         delegate.tick_(None)
         assert delegate.ask.shown[-1][0] == 'Connection lost during an active session. The bridge stopped.'
-        assert delegate.help_window is not None and bool(delegate.help_window.reset_button.isEnabled())
-        assert str(delegate.help_window.reset_button.title()) == 'Reset Bluetooth & Restart Bridge'
-        delegate.ask.shown.clear()
+        help_window = delegate.help_window
+        assert help_window is not None and bool(help_window.reset_button.isEnabled())
+        assert str(help_window.reset_button.title()) == 'Reset Bluetooth & Restart Bridge'
+        assert str(help_window.done_button.title()) == 'Done'
+        assert bool(help_window.manual.isHidden()) and bool(help_window.status_title.isHidden())
         return delegate
 
     @staticmethod
@@ -524,73 +553,122 @@ class TestGuidedRecovery:
             time.sleep(0.02)
         assert condition(), f'timed out waiting for {what}'
 
-    def test_cancel_at_the_confirmation_does_nothing(self, launch: Callable[[], Any], sim: SimRoaster, system: Any) -> None:
+    @staticmethod
+    def title(delegate: Any) -> str:
+        return str(delegate.help_window.status_title.stringValue())
+
+    @staticmethod
+    def detail(delegate: Any) -> str:
+        return str(delegate.help_window.status_detail.stringValue())
+
+    def test_the_confirmation_is_a_sheet_on_the_help_window(self, launch: Callable[[], Any], sim: SimRoaster, system: Any,
+                                                             activations: list[str]) -> None:
         delegate = self.after_connection_loss(launch, sim, system)
-        delegate.ask.answers = [0]  # Cancel
-        assert not delegate.reset_bluetooth_and_restart()
-        message, text, buttons, _ = delegate.ask.shown[-1]
+        alerts, activated = len(delegate.ask.shown), len(activations)
+        delegate.sheet.answers = [0]  # Cancel
+        delegate.reset_bluetooth_and_restart()
+        window, message, text, buttons = delegate.sheet.shown[-1]
+        assert window is delegate.help_window.window
         assert message == 'Reset Bluetooth and restart the bridge?' and buttons == ['Cancel', 'Reset Bluetooth']
         assert 'switched on again, idle' in text and 'heater is off' in text
         assert 'administrator password' in text and 'keyboards, mice' in text
         for _ in range(5):
             delegate.tick_(None)
         assert system.calls == [] and not delegate.controller.running()
+        assert len(delegate.ask.shown) == alerts and len(activations) == activated  # no alert, no activation
 
-    def test_success_one_attempt_then_real_replies(self, launch: Callable[[], Any], sim: SimRoaster, system: Any) -> None:
+    def test_success_is_shown_in_the_help_window_only(self, launch: Callable[[], Any], sim: SimRoaster, system: Any,
+                                                       activations: list[str], quiet: dict[str, Any]) -> None:
         delegate = self.after_connection_loss(launch, sim, system)
-        delegate.ask.answers = [1]  # Reset Bluetooth
-        assert delegate.reset_bluetooth_and_restart()
+        alerts, activated, front = len(delegate.ask.shown), len(activations), list(quiet['front'])
+        delegate.sheet.answers = [1]  # Reset Bluetooth
+        delegate.reset_bluetooth_and_restart()
         assert not bool(delegate.help_window.reset_button.isEnabled())  # no second attempt meanwhile
-        self.tick_until(delegate, lambda: any(m == 'The bridge has started.' for m, *_ in delegate.ask.shown), 'the prompt to click ON')
+        self.tick_until(delegate, lambda: self.title(delegate) == 'Click ON in Artisan', 'the prompt to click ON')
         assert system.calls == ['restart_service', 'set_power(False)', 'set_power(True)']
-        assert delegate.controller.running() and 'click ON' in str(delegate.help_window.progress.stringValue())
-        shown = len(delegate.ask.shown)
-        assert not delegate.reset_bluetooth_and_restart()  # a second click while waiting: ignored, not even asked
-        assert len(delegate.ask.shown) == shown
+        assert delegate.controller.running() and 'click ON' in self.detail(delegate)
+        assert self.title(delegate) != 'Readings are back'  # an open port is not a recovery
+        sheets = len(delegate.sheet.shown)
+        delegate.reset_bluetooth_and_restart()  # a second click while waiting: ignored, not even asked
+        assert len(delegate.sheet.shown) == sheets
         artisan = Artisan(delegate.controller.virtual_port)
         artisan.on()
         assert artisan.ask('{[RD A0]}').startswith(b'{0,BT:')
-        self.tick_until(delegate, lambda: any(m == 'Readings are back.' for m, *_ in delegate.ask.shown), 'the success message')
-        assert bool(delegate.help_window.reset_button.isEnabled())
+        self.tick_until(delegate, lambda: self.title(delegate) == 'Readings are back', 'the success status')
+        assert 'replies from the roaster are arriving' in self.detail(delegate)
+        assert bool(delegate.help_window.manual.isHidden()) and bool(delegate.help_window.reset_button.isEnabled())
         assert sim.links() == ['up', 'down', 'up']  # the stop after the loss, then one new open
-        assert [m for m, *_ in delegate.ask.shown] == ['Reset Bluetooth and restart the bridge?', 'The bridge has started.', 'Readings are back.']
+        # nothing pulled the user away from Artisan after the confirmation
+        assert len(delegate.ask.shown) == alerts, delegate.ask.shown[alerts:]
+        assert len(activations) == activated and quiet['front'] == front
+        assert not bool(delegate.help_window.window.isVisible())
         artisan.off()
 
-    def test_authorization_denied_names_the_step_and_offers_manual_steps(self, launch: Callable[[], Any], sim: SimRoaster, system: Any) -> None:
+    def test_a_failure_is_shown_in_the_help_window_with_the_manual_steps(self, launch: Callable[[], Any], sim: SimRoaster,
+                                                                         system: Any, activations: list[str],
+                                                                         quiet: dict[str, Any]) -> None:
         from kaleido_serial_bridge.recovery import Outcome  # pylint: disable=import-outside-toplevel
         system.restart = Outcome(False, cancelled=True)
         delegate = self.after_connection_loss(launch, sim, system)
-        delegate.ask.answers = [1]
+        alerts, activated, front = len(delegate.ask.shown), len(activations), list(quiet['front'])
+        delegate.sheet.answers = [1]
         delegate.reset_bluetooth_and_restart()
-        self.tick_until(delegate, lambda: any(m.startswith('Recovery stopped at') for m, *_ in delegate.ask.shown), 'the failure')
-        message, text, _, critical = delegate.ask.shown[-1]
-        assert message == 'Recovery stopped at: Restart the Bluetooth service' and critical
-        assert 'authorization was cancelled' in text and guide.RECOVERY_MANUAL in text and 'sudo pkill -x bluetoothd' in text
-        assert 'Stopped at "Restart the Bluetooth service"' in str(delegate.help_window.progress.stringValue())
+        self.tick_until(delegate, lambda: self.title(delegate).startswith('Recovery stopped at'), 'the failure')
+        assert self.title(delegate) == 'Recovery stopped at: Restart the Bluetooth service'
+        assert 'authorization was cancelled' in self.detail(delegate)
+        assert not bool(delegate.help_window.manual.isHidden())
+        assert str(delegate.help_window.manual.stringValue()) == guide.RECOVERY_MANUAL and 'sudo pkill -x bluetoothd' in guide.RECOVERY_MANUAL
         assert system.calls == ['restart_service'] and not delegate.controller.running()
         assert bool(delegate.help_window.reset_button.isEnabled())  # another attempt is possible
-        count = len(delegate.ask.shown)
         for _ in range(5):
             delegate.tick_(None)
-        assert len(delegate.ask.shown) == count  # told once
+        assert len(delegate.ask.shown) == alerts and len(activations) == activated and quiet['front'] == front
+        assert not bool(delegate.help_window.window.isVisible())
 
-    def test_missing_port_names_the_step(self, launch: Callable[[], Any], sim: SimRoaster, system: Any) -> None:
+    def test_a_missing_port_is_shown_in_the_help_window(self, launch: Callable[[], Any], sim: SimRoaster, system: Any,
+                                                        activations: list[str]) -> None:
         system.port_back_after = None
         delegate = self.after_connection_loss(launch, sim, system)
-        delegate.ask.answers = [1]
+        alerts, activated = len(delegate.ask.shown), len(activations)
+        delegate.sheet.answers = [1]
         delegate.reset_bluetooth_and_restart()
-        self.tick_until(delegate, lambda: any(m.startswith('Recovery stopped at') for m, *_ in delegate.ask.shown), 'the failure')
-        message, text, _, _ = delegate.ask.shown[-1]
-        assert message == "Recovery stopped at: Wait for the roaster's serial port" and 'did not appear' in text
-        assert not delegate.controller.running()
+        self.tick_until(delegate, lambda: self.title(delegate).startswith('Recovery stopped at'), 'the failure')
+        assert self.title(delegate) == "Recovery stopped at: Wait for the roaster's serial port" and 'did not appear' in self.detail(delegate)
+        assert not bool(delegate.help_window.manual.isHidden()) and not delegate.controller.running()
+        assert len(delegate.ask.shown) == alerts and len(activations) == activated
 
-    def test_a_running_bridge_is_not_reset(self, launch: Callable[[], Any], sim: SimRoaster, system: Any) -> None:
+    def test_a_bridge_failure_during_the_attempt_is_shown_in_the_help_window(self, launch: Callable[[], Any], sim: SimRoaster,
+                                                                             system: Any, activations: list[str]) -> None:
+        delegate = self.after_connection_loss(launch, sim, system)
+        alerts, activated = len(delegate.ask.shown), len(activations)
+        delegate.sheet.answers = [1]
+        delegate.reset_bluetooth_and_restart()
+        self.tick_until(delegate, lambda: self.title(delegate) == 'Click ON in Artisan', 'the prompt to click ON')
+        sim.drop_link()  # the roaster's port fails before any reply
+        self.tick_until(delegate, lambda: self.title(delegate).startswith('Recovery stopped at'), 'the failure')
+        assert self.title(delegate) == 'Recovery stopped at: Wait for roaster replies'
+        assert 'Bluetooth port failed' in self.detail(delegate)
+        assert len(delegate.ask.shown) == alerts and len(activations) == activated  # no alert of its own meanwhile
+
+    def test_done_dismisses_the_window(self, launch: Callable[[], Any], sim: SimRoaster, system: Any) -> None:
+        delegate = self.after_connection_loss(launch, sim, system)
+        window = delegate.help_window.window
+        window.orderFront_(None)
+        assert bool(window.isVisible())
+        delegate.help_window.done_button.performClick_(None)
+        assert not bool(window.isVisible())
+
+    def test_a_running_bridge_is_not_reset(self, launch: Callable[[], Any], sim: SimRoaster, system: Any,
+                                           activations: list[str]) -> None:
         delegate = launch()
         delegate.recovery_system = system
+        delegate.sheet = Sheets()
         complete_setup(delegate, sim)
         delegate.controller.start()
-        assert not delegate.reset_bluetooth_and_restart()
-        assert delegate.ask.shown[-1][0] == 'Stop the bridge first.' and len(delegate.ask.shown) == 1  # no confirmation offered
+        delegate.reset_bluetooth_and_restart()
+        window, message, _, buttons = delegate.sheet.shown[-1]
+        assert message == 'Stop the bridge first.' and buttons == ['OK'] and window is delegate.help_window.window
+        assert len(delegate.sheet.shown) == 1 and delegate.ask.shown == [] and activations == []
         assert system.calls == [] and delegate.controller.running()
 
     def test_help_mentions_the_button(self) -> None:

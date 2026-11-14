@@ -8,7 +8,9 @@
   macOS's standard authorization dialog), turn Bluetooth off and on, wait for the roaster's serial
   port, start the bridge once, and wait for real replies after the user clicks ON in Artisan.
   Every wait has a limit; a cancelled authorization or a failed step stops the attempt, names the
-  step and shows the manual steps. It refuses to run while the bridge is running; the stop after a
+  step and shows the manual steps. The confirmation is a sheet on the Help window, and all status
+  ("Click ON in Artisan", "Readings are back", failures) is shown in that window, with a Done
+  button; the recovery never activates the app or opens an alert after the confirmation. It refuses to run while the bridge is running; the stop after a
   connection loss is unchanged. The power switch uses an undocumented IOBluetooth function.
   The simulator tests and the packaged checks passed (test build app CDHash
   `1640c79eab7c23259790e6a65d27cfbdd95110de`). **Pending on hardware:** the administrator prompt,

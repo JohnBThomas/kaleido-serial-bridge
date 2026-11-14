@@ -139,8 +139,13 @@ def make_window(title: str, content: Any, height: float) -> Any:
     return window
 
 
-def bring_forward(window: Any) -> None:
+def activate_app() -> None:
+    """The one place where the app makes itself the active app. Only for something the user just asked for."""
     NSApp.activateIgnoringOtherApps_(True)
+
+
+def bring_forward(window: Any) -> None:
+    activate_app()
     window.makeKeyAndOrderFront_(None)
 
 
@@ -158,8 +163,20 @@ def run_alert(message: str, text: str, buttons: list[str], critical: bool = Fals
     alert.setAlertStyle_(NSAlertStyleCritical if critical else NSAlertStyleWarning)
     for title in buttons:
         alert.addButtonWithTitle_(title)
-    NSApp.activateIgnoringOtherApps_(True)
+    activate_app()
     return int(alert.runModal()) - 1000
+
+
+def run_sheet(window: Any, message: str, text: str, buttons: list[str], completion: Callable[[int], None], critical: bool = False) -> None:
+    """Shows an alert attached to a window, in that window's Space, without activating the app. Calls completion with
+    the index of the button that was clicked. The first button is the default."""
+    alert = NSAlert.alloc().init()
+    alert.setMessageText_(message)
+    alert.setInformativeText_(text)
+    alert.setAlertStyle_(NSAlertStyleCritical if critical else NSAlertStyleWarning)
+    for title in buttons:
+        alert.addButtonWithTitle_(title)
+    alert.beginSheetModalForWindow_completionHandler_(window, lambda response: completion(int(response) - 1000))
 
 
 def symbol(name: str, description: str) -> Any:
@@ -449,26 +466,36 @@ class HelpWindow:
         self.text.setDrawsBackground_(False)
         scroll.setDrawsBackground_(False)
         scroll.setHasVerticalScroller_(True)
-        # one recovery attempt per click; the app asks for confirmation first (see AppDelegate.reset_bluetooth_and_restart)
+        # One recovery attempt per click. The confirmation is a sheet on this window, and everything the attempt has to
+        # say afterwards is shown here: it never activates the app, brings this window forward or opens an alert.
         self.reset_button = button(guide.RECOVERY_BUTTON, lambda _sender: app.reset_bluetooth_and_restart())
-        self.progress = label('', size=12.0, secondary=True)
-        content = stack([self.reset_button, self.progress, scroll], spacing=8.0)
+        self.done_button = button('Done', lambda _sender: self.dismiss())
+        self.status_title = label('', size=13.0, bold=True)
+        self.status_detail = label('', size=12.0)
+        self.manual = label(guide.RECOVERY_MANUAL, size=12.0, selectable=True)
+        content = stack([stack([self.reset_button, self.done_button], vertical=False), self.status_title, self.status_detail,
+                         self.manual, scroll], spacing=8.0)
         NSLayoutConstraint.activateConstraints_([
             scroll.widthAnchor().constraintEqualToAnchor_(content.widthAnchor()),
-            scroll.heightAnchor().constraintGreaterThanOrEqualToConstant_(380.0),
+            scroll.heightAnchor().constraintGreaterThanOrEqualToConstant_(340.0),
         ])
-        self.window = make_window(f'{APP_NAME} Help', content, 620.0)
+        self.window = make_window(f'{APP_NAME} Help', content, 640.0)
+        self.update_recovery(None)
+
+    def dismiss(self) -> None:
+        self.window.orderOut_(None)
 
     def update_recovery(self, progress: Progress | None) -> None:
-        """Shows how a recovery attempt is going. The button is off while one is under way."""
+        """Shows how a recovery attempt is going, in this window only. The button is off while one is under way."""
+        title, detail, manual = recovery_view(progress)
         active = progress is not None and progress.phase in (Phase.RUNNING, Phase.WAITING_FOR_ARTISAN)
         self.reset_button.setEnabled_(not active)
-        if progress is None or progress.phase is Phase.IDLE:
-            self.progress.setStringValue_('')
-        elif progress.phase is Phase.FAILED and progress.step is not None:
-            self.progress.setStringValue_(f'Stopped at "{progress.step.value}": {progress.detail}')
-        else:
-            self.progress.setStringValue_(progress.detail)
+        self.status_title.setStringValue_(title)
+        self.status_detail.setStringValue_(detail)
+        self.status_title.setHidden_(not title)
+        self.status_detail.setHidden_(not detail)
+        self.manual.setHidden_(not manual)
+
 
     def show(self) -> None:
         controller: BridgeController = self.app.controller
@@ -480,6 +507,20 @@ class HelpWindow:
             document.appendAttributedString_(NSAttributedString.alloc().initWithString_attributes_(topic.body + '\n\n\n', body))
         self.text.textStorage().setAttributedString_(document)
         bring_forward(self.window)
+
+
+def recovery_view(progress: Progress | None) -> tuple[str, str, bool]:
+    """(title, detail, show the manual steps) for the Help window."""
+    if progress is None or progress.phase is Phase.IDLE:
+        return '', '', False
+    if progress.phase is Phase.RUNNING:
+        return guide.RECOVERY_WORKING, progress.detail, False
+    if progress.phase is Phase.WAITING_FOR_ARTISAN:
+        return guide.RECOVERY_CLICK_ON, progress.detail, False
+    if progress.phase is Phase.SUCCEEDED:
+        return guide.RECOVERY_DONE, progress.detail, False
+    step = progress.step.value if progress.step is not None else 'Recovery'
+    return f'{guide.RECOVERY_STOPPED}: {step}', progress.detail, True
 
 
 def state_symbol(state: State, description: str) -> Any:

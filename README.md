@@ -268,19 +268,25 @@ Steps 3 and 4 can also be done from the app. The Help window (the alert's **Help
 Help in the menu) has a **Reset Bluetooth & Restart Bridge** button. It works only while the
 bridge is stopped, and it never stops a running bridge. One click makes one attempt:
 
-1. It asks you to confirm that the roaster is switched on again, idle, and that its heater is off,
-   and says that every Bluetooth device of the Mac disconnects for a few seconds.
+1. In a sheet on the Help window, it asks you to confirm that the roaster is switched on again,
+   idle, and that its heater is off, and says that every Bluetooth device of the Mac disconnects
+   for a few seconds.
 2. It restarts the Bluetooth service. macOS shows its standard authorization dialog; only this
    one command (`/usr/bin/pkill -x bluetoothd`) runs with administrator rights. The app itself
    keeps running as you.
 3. It waits for the service, turns Bluetooth off, waits two seconds, and turns it on again.
 4. It waits for the roaster's serial port to appear, then starts the bridge once.
-5. It asks you to click **ON** in Artisan, and reports success only when replies from the roaster
-   arrive through the bridge.
+5. The Help window shows **Click ON in Artisan**, and **Readings are back** only when replies from
+   the roaster arrive through the bridge.
 
 Every wait has a time limit. If the authorization is cancelled or a step fails or times out, the
-attempt stops there, names the step, and shows the manual steps above; the bridge is not started
-after a failed step. A second click while an attempt is under way does nothing.
+attempt stops there, and the Help window names the step and shows the manual steps; the bridge is
+not started after a failed step. A second click while an attempt is under way does nothing.
+**Done** closes the window.
+
+After the confirmation, everything the recovery has to say appears in the Help window. It does not
+open alerts, make the app active or bring the window forward, so you can switch to Artisan, in
+another Space too, and click ON there. macOS's own password dialog is separate.
 
 Turning Bluetooth off and on uses a function of macOS's IOBluetooth framework that Apple does not
 document (the one `blueutil` uses). If it is missing or has no effect, that step fails and the
@@ -342,7 +348,7 @@ Nothing else is installed.
 ## For developers
 
 ```
-python -m pytest                              # 100 tests against a simulated roaster, about 35 s
+python -m pytest                              # 102 tests against a simulated roaster, about 40 s
 ruff check . && mypy && codespell
 packaging/build.sh
 python tests/packaged_app_check.py "$TMPDIR/kaleido-serial-bridge-build/dist/Kaleido Serial Bridge.app"

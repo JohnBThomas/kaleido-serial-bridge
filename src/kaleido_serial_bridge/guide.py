@@ -132,13 +132,15 @@ RECOVERY_CONFIRM = (
     'included. They usually reconnect by themselves.\n\n'
     'This sequence restored readings in the idle power-loss tests on one M2 Lite. It is not a guarantee.')
 
-RECOVERY_STARTED = (
-    'The bridge has started.',
-    'In Artisan, click ON now. The recovery counts as done only when replies from the roaster arrive through the bridge.')
+RECOVERY_WORKING = 'Resetting Bluetooth…'
+RECOVERY_CLICK_ON = 'Click ON in Artisan'
+RECOVERY_DONE = 'Readings are back'
+RECOVERY_STOPPED = 'Recovery stopped at'
 
-RECOVERY_SUCCEEDED = (
-    'Readings are back.',
-    'Replies from the roaster are arriving through the bridge.')
+RECOVERY_RUNNING_BRIDGE = (
+    'Stop the bridge first.',
+    'The recovery works only while the bridge is stopped, and it never stops the bridge itself. Click OFF in Artisan, '
+    'then choose Stop Bridge in the menu.')
 
 RECOVERY_MANUAL = (
     'To do it by hand:\n'

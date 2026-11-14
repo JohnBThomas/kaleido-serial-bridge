@@ -198,12 +198,14 @@ class Recovery:
         self._enter(Step.WAIT_REPLIES, 'The bridge has started. In Artisan, click ON. Waiting for replies from the roaster.')
 
     def _wait_replies(self) -> None:
-        status = self.controller.status()
+        # The bridge's thread first, then poll: if the thread has ended, poll records why, so the reason is never missing.
+        alive = self.controller.running()
+        status = self.controller.poll()
         if status.state is State.RECEIVING:
             self.phase = Phase.SUCCEEDED
             self.detail = 'Recovered: replies from the roaster are arriving through the bridge.'
-        elif not status.running:
-            self._fail(f'The bridge stopped before the roaster answered: {status.headline}')
+        elif not alive and not status.running:
+            self._fail(f'The bridge stopped before the roaster answered: {status.headline} {status.detail}'.strip())
         elif self._elapsed() > REPLY_TIMEOUT:
             self._fail(f'No reply from the roaster within {REPLY_TIMEOUT:.0f} s of the start. The bridge is still running.')
 

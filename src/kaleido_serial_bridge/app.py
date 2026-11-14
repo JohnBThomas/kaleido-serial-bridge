@@ -26,8 +26,8 @@ from . import APP_NAME, __version__, guide
 from .controller import BridgeController, Exit, State, Status
 from .engine import EXIT_ABRUPT, EXIT_OK, EXIT_SETUP, EXIT_UPSTREAM
 from .menu import Entry, menu_entries
-from .recovery import MacSystem, Phase, Recovery, System
-from .ui import HelpWindow, SettingsWindow, SetupGuide, copy_text, run_alert, state_symbol
+from .recovery import MacSystem, Recovery, System
+from .ui import HelpWindow, SettingsWindow, SetupGuide, activate_app, copy_text, run_alert, run_sheet, state_symbol
 
 ACTIONS = {
     'start': 'startBridge:', 'stop': 'stopBridge:', 'copy': 'copyVirtualPort:', 'log': 'openLog:', 'settings': 'showSettings:',
@@ -44,6 +44,7 @@ class AppDelegate(NSObject):
             return None
         self.controller = controller
         self.ask = run_alert              # replaced in tests
+        self.sheet = run_sheet            # replaced in tests
         self.item: Any = None
         self.menu: Any = None
         self.entries: list[Entry] = []
@@ -53,7 +54,6 @@ class AppDelegate(NSObject):
         self.help_window: Any = None
         self.recovery_system: System | None = None  # MacSystem on first use; replaced in tests
         self.recovery: Recovery | None = None
-        self.recovery_told: tuple[int, Phase] | None = None  # the last outcome an alert was shown for
         self.timer: Any = None
         self.busy = False
         self.quit_requested = False
@@ -144,9 +144,10 @@ class AppDelegate(NSObject):
                 return
             self.refresh()
             event = self.controller.take_exit()
-            if event is not None and event.code != EXIT_OK:
-                self.report_failure(event)
-            if self.recovery is not None and self.recovery.active:
+            recovering = self.recovery is not None and self.recovery.active
+            if event is not None and event.code != EXIT_OK and not recovering:
+                self.report_failure(event)  # during a recovery attempt the Help window says why the bridge stopped instead
+            if recovering:
                 self.advance_recovery()
         finally:
             self.busy = False
@@ -193,44 +194,40 @@ class AppDelegate(NSObject):
     # ---- guided Bluetooth recovery (one attempt per click, from the Help window)
 
     @objc.python_method
-    def reset_bluetooth_and_restart(self) -> bool:
-        """Asks first, then begins one recovery attempt. Returns whether one began."""
+    def reset_bluetooth_and_restart(self) -> None:
+        """The Help window's button: asks in a sheet on that window, then begins one recovery attempt."""
+        if self.help_window is None:
+            self.help_window = HelpWindow(self)
         if self.recovery is None:
             self.recovery = Recovery(self.controller, self.recovery_system if self.recovery_system is not None else MacSystem())
         if self.recovery.active:
-            return False  # one at a time; the button is off meanwhile
+            return  # one at a time; the button is off meanwhile
+        window = self.help_window.window
         if self.controller.running():
-            self.ask('Stop the bridge first.', 'The recovery works only while the bridge is stopped, and it never stops the '
-                     'bridge itself. Click OFF in Artisan, then choose Stop Bridge in the menu.', ['OK'], False)
-            return False
+            self.sheet(window, *guide.RECOVERY_RUNNING_BRIDGE, ['OK'], lambda _choice: None)
+            return
         message, text = guide.RECOVERY_CONFIRM
-        if self.ask(message, text, ['Cancel', 'Reset Bluetooth'], True) != 1:
-            return False
-        self.recovery.begin()
+        self.sheet(window, message, text, ['Cancel', 'Reset Bluetooth'], self.recovery_confirmed, True)
+
+    @objc.python_method
+    def recovery_confirmed(self, choice: int) -> None:
+        recovery = self.recovery
+        if choice != 1 or recovery is None or recovery.active or self.controller.running():
+            return
+        recovery.begin()
         self.advance_recovery()
-        return True
 
     @objc.python_method
     def advance_recovery(self) -> None:
+        """One step, and its result shown in the Help window. Never activates the app, orders a window or opens an alert:
+        the user may be in Artisan, in another Space, clicking ON."""
         recovery = self.recovery
         if recovery is None:
             return
         recovery.step()
-        progress = recovery.progress()
         if self.help_window is not None:
-            self.help_window.update_recovery(progress)
+            self.help_window.update_recovery(recovery.progress())
         self.refresh()
-        told = (progress.attempt, progress.phase)
-        if progress.phase in (Phase.IDLE, Phase.RUNNING) or told == self.recovery_told:
-            return
-        self.recovery_told = told
-        if progress.phase is Phase.WAITING_FOR_ARTISAN:
-            self.ask(*guide.RECOVERY_STARTED, ['OK'], False)
-        elif progress.phase is Phase.SUCCEEDED:
-            self.ask(*guide.RECOVERY_SUCCEEDED, ['OK'], False)
-        elif progress.phase is Phase.FAILED:
-            step = progress.step.value if progress.step is not None else 'Recovery'
-            self.ask(f'Recovery stopped at: {step}', f'{progress.detail}\n\n{guide.RECOVERY_MANUAL}', ['OK'], True)
 
     @objc.python_method
     def show_guide(self) -> None:
@@ -277,7 +274,7 @@ class AppDelegate(NSObject):
         self.show_help()
 
     def showAbout_(self, _sender: Any) -> None:  # noqa: N802
-        NSApp.activateIgnoringOtherApps_(True)
+        activate_app()
         NSApp.orderFrontStandardAboutPanelWithOptions_({
             'ApplicationName': APP_NAME, 'ApplicationVersion': __version__, 'Version': '',
             'Copyright': 'MIT License. Not affiliated with Kaleido or the Artisan project.',
