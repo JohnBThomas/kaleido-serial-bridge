@@ -36,7 +36,7 @@ def setup_steps(device: str) -> list[Step]:
              'restart or a Bluetooth reset, and not on every one of those. Let that first open be the bridge: it opens the '
              'port once and keeps it open, while Artisan comes and goes.\n\n'
              f'After Start, "Waiting for Bluetooth" is normal for about {BLUETOOTH_USUAL} seconds. '
-             'If it stays for a minute, see "No Readings?" in the menu.'),
+             'If it stays for a minute, see "Troubleshooting…" in the menu.'),
         Step('artisan', 'Point Artisan at the virtual port',
              f'In Artisan open {ARTISAN_PORT_MENU}, paste the path below and click OK. Everything else in the '
              'Kaleido serial setup stays as it is (57600, 8, N, 1).\n\n'
@@ -107,7 +107,8 @@ def help_topics(device: str) -> list[Topic]:
               '5.  In Artisan, click ON.\n\n'
               f'Instead of steps 3 and 4 you can click "{RECOVERY_BUTTON}" at the top of this window. It asks you first, '
               'needs an administrator password for the restart of the Bluetooth service, and makes one attempt per click. '
-              'It does not work while the bridge is running.\n\n'
+              'It does not work while the bridge is running. When the bridge has started, this window says so: then, if '
+              'Artisan is still monitoring, click OFF, then ON. Otherwise, click ON.\n\n'
               'The bridge does not reset Bluetooth, reopen the port or start again on its own.'),
         Topic('What the bridge does and does not do',
               'It passes bytes between Artisan and the roaster unchanged, including Artisan\'s own safety commands. '
@@ -133,6 +134,7 @@ RECOVERY_CONFIRM = (
 
 RECOVERY_WORKING = 'Resetting Bluetooth…'
 RECOVERY_CLICK_ON = 'Click ON in Artisan'
+RECOVERY_ARTISAN_STEP = 'If Artisan is still monitoring, click OFF, then ON. Otherwise, click ON.'
 RECOVERY_DONE = 'Readings are back'
 RECOVERY_STOPPED = 'Recovery stopped at'
 

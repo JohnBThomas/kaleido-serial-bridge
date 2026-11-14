@@ -9,8 +9,10 @@
   port, start the bridge once, and wait for real replies after the user clicks ON in Artisan.
   Every wait has a limit; a cancelled authorization or a failed step stops the attempt, names the
   step and shows the manual steps. The confirmation is a sheet on the Help window, and all status
-  ("Click ON in Artisan", "Readings are back", failures) is shown in that window, with a Done
-  button; the recovery never activates the app or opens an alert after the confirmation.
+  ("Click ON in Artisan", with "If Artisan is still monitoring, click OFF, then ON. Otherwise,
+  click ON.", then "Readings are back", or failures) is shown in that window; closing it leaves an
+  attempt running. The recovery never activates the app or opens an alert after the
+  confirmation. The menu item for the Help window is now "Troubleshooting…".
   After the restart of the Bluetooth service it waits until Bluetooth reports on before asking to
   turn it off, and repeats a power request without effect every 2 s within the step's limit (on
   hardware a request sent too early was rejected and two attempts failed). Every step, retry and

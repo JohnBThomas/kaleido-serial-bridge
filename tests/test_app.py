@@ -541,7 +541,7 @@ class TestGuidedRecovery:
         help_window = delegate.help_window
         assert help_window is not None and bool(help_window.reset_button.isEnabled())
         assert str(help_window.reset_button.title()) == 'Reset Bluetooth & Restart Bridge'
-        assert str(help_window.done_button.title()) == 'Done'
+        assert not hasattr(help_window, 'done_button')  # the window's own close button is enough
         assert bool(help_window.manual.isHidden()) and bool(help_window.status_title.isHidden())
         return delegate
 
@@ -589,7 +589,8 @@ class TestGuidedRecovery:
         assert not bool(delegate.help_window.reset_button.isEnabled())  # no second attempt meanwhile
         self.tick_until(delegate, lambda: self.title(delegate) == 'Click ON in Artisan', 'the prompt to click ON')
         assert system.calls == ['restart_service', 'set_power(False)', 'set_power(True)']
-        assert delegate.controller.running() and 'click ON' in self.detail(delegate)
+        assert delegate.controller.running()
+        assert 'If Artisan is still monitoring, click OFF, then ON. Otherwise, click ON.' in self.detail(delegate)
         assert self.title(delegate) != 'Readings are back'  # an open port is not a recovery
         sheets = len(delegate.sheet.shown)
         delegate.reset_bluetooth_and_restart()  # a second click while waiting: ignored, not even asked
@@ -653,13 +654,34 @@ class TestGuidedRecovery:
         assert 'Bluetooth port failed' in self.detail(delegate)
         assert len(delegate.ask.shown) == alerts and len(activations) == activated  # no alert of its own meanwhile
 
-    def test_done_dismisses_the_window(self, launch: Callable[[], Any], sim: SimRoaster, system: Any) -> None:
+    def test_closing_the_window_leaves_the_attempt_running(self, launch: Callable[[], Any], sim: SimRoaster, system: Any,
+                                                             activations: list[str], quiet: dict[str, Any]) -> None:
         delegate = self.after_connection_loss(launch, sim, system)
         window = delegate.help_window.window
         window.orderFront_(None)
-        assert bool(window.isVisible())
-        delegate.help_window.done_button.performClick_(None)
+        delegate.sheet.answers = [1]
+        delegate.reset_bluetooth_and_restart()
+        window.performClose_(None)  # the window's close button
         assert not bool(window.isVisible())
+        alerts, activated, front = len(delegate.ask.shown), len(activations), list(quiet['front'])
+        self.tick_until(delegate, lambda: self.title(delegate) == 'Click ON in Artisan', 'the prompt to click ON')
+        artisan = Artisan(delegate.controller.virtual_port)
+        artisan.on()
+        artisan.ask('{[RD A0]}')
+        self.tick_until(delegate, lambda: self.title(delegate) == 'Readings are back', 'the success status')
+        # the attempt finished with the window closed, and nothing reopened or activated it
+        assert not bool(window.isVisible())
+        assert len(delegate.ask.shown) == alerts and len(activations) == activated and quiet['front'] == front
+        # opened again by the user, it shows the outcome
+        delegate.show_help()
+        assert self.title(delegate) == 'Readings are back' and quiet['front'][-1] == 'Kaleido Serial Bridge Help'
+        artisan.off()
+
+    def test_the_menu_item_is_called_troubleshooting(self, launch: Callable[[], Any]) -> None:
+        entries = menu(launch())
+        assert entries['Troubleshooting…'] and not any(title.startswith('No Readings') for title in entries)
+        topics = {topic.title for topic in guide.help_topics('/dev/cu.Roaster_SRSv6')}
+        assert 'Back to direct Bluetooth' in topics  # still a section of the window
 
     def test_a_running_bridge_is_not_reset(self, launch: Callable[[], Any], sim: SimRoaster, system: Any,
                                            activations: list[str]) -> None:

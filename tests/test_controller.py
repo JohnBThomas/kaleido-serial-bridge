@@ -334,7 +334,7 @@ class TestDerivedStatus:
         usual = self.derive(self.snapshot(opened_at=self.NOW - 13), LinkView(NOT_CONNECTED, self.NOW - 13))
         assert usual.state is State.WAITING_BLUETOOTH and not usual.attention
         long = self.derive(self.snapshot(opened_at=self.NOW - 60), LinkView(NOT_CONNECTED, self.NOW - 60))
-        assert long.state is State.WAITING_BLUETOOTH and long.attention and 'No Readings?' in long.detail
+        assert long.state is State.WAITING_BLUETOOTH and long.attention and '"Troubleshooting…" in the menu' in long.detail
 
     def test_a_link_that_was_connected_and_is_not_any_more(self) -> None:
         status = self.derive(self.snapshot(opened_at=self.NOW - 600), LinkView(NOT_CONNECTED, self.NOW - 20, True))

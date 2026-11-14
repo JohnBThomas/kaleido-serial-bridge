@@ -468,22 +468,18 @@ class HelpWindow:
         scroll.setHasVerticalScroller_(True)
         # One recovery attempt per click. The confirmation is a sheet on this window, and everything the attempt has to
         # say afterwards is shown here: it never activates the app, brings this window forward or opens an alert.
+        # Closing the window does not stop an attempt; its status is written here and seen when the window is opened again.
         self.reset_button = button(guide.RECOVERY_BUTTON, lambda _sender: app.reset_bluetooth_and_restart())
-        self.done_button = button('Done', lambda _sender: self.dismiss())
         self.status_title = label('', size=13.0, bold=True)
         self.status_detail = label('', size=12.0)
         self.manual = label(guide.RECOVERY_MANUAL, size=12.0, selectable=True)
-        content = stack([stack([self.reset_button, self.done_button], vertical=False), self.status_title, self.status_detail,
-                         self.manual, scroll], spacing=8.0)
+        content = stack([self.reset_button, self.status_title, self.status_detail, self.manual, scroll], spacing=8.0)
         NSLayoutConstraint.activateConstraints_([
             scroll.widthAnchor().constraintEqualToAnchor_(content.widthAnchor()),
             scroll.heightAnchor().constraintGreaterThanOrEqualToConstant_(340.0),
         ])
         self.window = make_window(f'{APP_NAME} Help', content, 640.0)
         self.update_recovery(None)
-
-    def dismiss(self) -> None:
-        self.window.orderOut_(None)
 
     def update_recovery(self, progress: Progress | None) -> None:
         """Shows how a recovery attempt is going, in this window only. The button is off while one is under way."""

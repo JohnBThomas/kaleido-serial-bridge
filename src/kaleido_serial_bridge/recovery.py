@@ -42,6 +42,7 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import Any, Protocol
 
+from . import guide
 from .controller import BridgeController, State
 from .engine import log
 
@@ -245,7 +246,7 @@ class Recovery:
             return
         log.info('recovery %d: bridge started; waiting for the user to click ON in Artisan', self.attempts)
         self.phase = Phase.WAITING_FOR_ARTISAN
-        self._enter(Step.WAIT_REPLIES, 'The bridge has started. In Artisan, click ON. Waiting for replies from the roaster.')
+        self._enter(Step.WAIT_REPLIES, f'The bridge has started. {guide.RECOVERY_ARTISAN_STEP} Waiting for replies from the roaster.')
 
     def _wait_replies(self) -> None:
         # The bridge's thread first, then poll: if the thread has ended, poll records why, so the reason is never missing.

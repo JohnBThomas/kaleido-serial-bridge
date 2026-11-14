@@ -278,19 +278,21 @@ bridge is stopped, and it never stops a running bridge. One click makes one atte
    seconds, and turns it on again. A power request that has no effect is sent again every two
    seconds, within the time limit of that step.
 4. It waits for the roaster's serial port to appear, then starts the bridge once.
-5. The Help window shows **Click ON in Artisan**, and **Readings are back** only when replies from
-   the roaster arrive through the bridge.
+5. The Help window shows **Click ON in Artisan**: if Artisan is still monitoring, click OFF, then
+   ON. Otherwise, click ON. It shows **Readings are back** only when replies from the roaster
+   arrive through the bridge.
 
 Every wait has a time limit. If the authorization is cancelled or a step fails or times out, the
 attempt stops there, and the Help window names the step and shows the manual steps; the bridge is
 not started after a failed step. A second click while an attempt is under way does nothing.
-**Done** closes the window. Every step, retry and outcome is written to the log (**Open Log** in
+The window can be closed at any time; an attempt under way goes on, and the window shows its
+outcome when it is opened again. Every step, retry and outcome is written to the log (**Open Log** in
 the menu): "Bluetooth service restarted", "Bluetooth power cycle completed", "bridge started" and
 "roaster replies received" mark how far an attempt got.
 
 After the confirmation, everything the recovery has to say appears in the Help window. It does not
 open alerts, make the app active or bring the window forward, so you can switch to Artisan, in
-another Space too, and click ON there. macOS's own password dialog is separate.
+another Space too, and click OFF and ON or ON there. macOS's own password dialog is separate.
 
 Turning Bluetooth off and on uses a function of macOS's IOBluetooth framework that Apple does not
 document (the one `blueutil` uses). If it is missing or has no effect, that step fails and the
@@ -352,7 +354,7 @@ Nothing else is installed.
 ## For developers
 
 ```
-python -m pytest                              # 112 tests against a simulated roaster, about 40 s
+python -m pytest                              # 113 tests against a simulated roaster, about 40 s
 ruff check . && mypy && codespell
 packaging/build.sh
 python tests/packaged_app_check.py "$TMPDIR/kaleido-serial-bridge-build/dist/Kaleido Serial Bridge.app"

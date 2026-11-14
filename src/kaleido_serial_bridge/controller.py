@@ -126,7 +126,7 @@ def derive_status(snapshot: Snapshot | None, link: LinkView, last_exit: Exit | N
     waited = now - snapshot.opened_at
     if waited > BLUETOOTH_PATIENCE:
         return running(State.WAITING_BLUETOOTH, 'Waiting for Bluetooth',
-                      f'Not connected after {_seconds(waited)}. This start is probably silent: see "No Readings?" in the menu.', attention=True)
+                      f'Not connected after {_seconds(waited)}. This start is probably silent: see "Troubleshooting…" in the menu.', attention=True)
     return running(State.WAITING_BLUETOOTH, 'Waiting for Bluetooth',
                   f'macOS has not connected the roaster yet ({_seconds(waited)}). About {BLUETOOTH_USUAL} s is normal.')
 
