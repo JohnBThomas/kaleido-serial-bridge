@@ -454,6 +454,70 @@ What this run does not show:
   reason, not the alert.
 - Anything with the heater on.
 
+### Packaged test build of `c6bfea8`: idle power loss and manual recovery
+
+One run, on 2026-11-14, with a local test build of commit `c6bfea845c2d787bb6c81909a97dd6e6ad99ce11`:
+the app with the code directory hash `61bb0351c20def68b95b52e65c2baac09f5619a8`, signed ad hoc, from
+the disk image `KaleidoSerialBridge-0.2.0-c6bfea8-adhoc-test-arm64.dmg` (SHA-256
+`d6566d8d11a9e84e83fbfc31782d1e4079625d250f3ec859def31e723b7c7fc3`). Its compiled modules were
+compared with the source at that commit before the run and matched. It reports version 0.2.0;
+only the hash tells it apart. Everything in this section is about that build and no other: not the
+signed 0.2.0 build, and not the later commits on this branch. Same Mac (macOS 27.2), same Kaleido
+M2 Lite, idle, heater off; Artisan 5.0.0 (build b03f31b6c), the installed app, as one process
+throughout, Comm Port set to the virtual port.
+
+**Where it ran: from `/Applications`, not from a separate folder.** The test was planned from a
+separate folder. The macOS log shows Finder copy operations at 00:09:52 and 00:10:47 (their
+destinations are not shown in the log) and the disk image mounted at 00:11:00. At 00:12:18 the app
+was started from `/Applications/Kaleido Serial Bridge.app`, which the kernel reported as signed ad
+hoc. The app in `/Applications` afterwards has the hash `61bb0351…`; the signed build that was
+installed there before has been replaced. The login item still points to that path, and no move of
+it is logged during the run.
+
+| Time | Source | Event |
+|---|---|---|
+| 00:12:18.25 | macOS log | the app starts from `/Applications` (process 9761, the same process for the whole run) |
+| 00:12:19.102 | app log | the bridge starts by itself ("Start the bridge when the app opens" is on). No Bluetooth reset since the previous close of the port at 23:58:53; no RFCOMM attempt appears for this open and no data comes from the roaster. A menu command at 00:12:36; the bridge stops at 00:12:39.3 |
+| 00:12:50 – 00:13:01 | macOS log | Bluetooth reset with the tester's local script: `sudo` at 00:12:50, the Bluetooth service restarts at 00:12:56.6, Bluetooth off at 00:12:58.23 and on at 00:13:00.62 |
+| 00:13:13.638 | macOS log, app log | a menu command; the bridge starts. RFCOMM connection attempt at 00:13:13.644, reported connected at 00:13:14.940 |
+| 00:13:27 | Artisan log, app log | **ON**. Session 1 attaches; 549 bytes of replies in the first 15 seconds |
+| 00:13:47.7 | macOS Bluetooth log | the last data from the roaster before the stop |
+| 00:13:52.708 | app log | "CONNECTION LOST during an active session … CL AR was not delivered after 24.8 s \| 19 commands delivered to the roaster, 777 bytes passed to Artisan \| The roaster had not answered for 5.0 s before that (3 commands unanswered)." The bridge closes the roaster's port and stops with exit code 4 at 00:13:52.717 |
+| 00:13:53 | Artisan log | Artisan tries to open the virtual port again ("No such file or directory"); it keeps running |
+| 00:13:52.894 | macOS Bluetooth log | the Bluetooth connection to the roaster ends, 0.18 s after the bridge closed the port |
+| 00:15:42, 00:16:56, 00:17:18 | macOS log | menu commands in the app. The log does not say which items they were. No start of the bridge follows them |
+| 00:17:55 – 00:18:05 | macOS log | Bluetooth reset with the same script: `sudo` at 00:17:55, the Bluetooth service restarts at 00:18:00.9, Bluetooth off at 00:18:02.47 and on at 00:18:04.92 |
+| 00:18:18.988 | macOS log, app log | a menu command; the bridge starts. RFCOMM connection attempt at 00:18:18.985, reported connected at 00:18:21.452 |
+| 00:18:36, 00:18:40 | Artisan log, app log | **OFF**, **ON**. Session 1 attaches; 549 bytes of replies in the first 15 seconds |
+| 00:19:04.5 | macOS Bluetooth log | the last data from the roaster before the second stop |
+| 00:19:09.550 | app log | a second "CONNECTION LOST during an active session", after 29.3 s, 22 commands and 948 bytes, again with "The roaster had not answered for 5.0 s before that (3 commands unanswered)". Exit code 4 at 00:19:09.557 |
+| 00:19:10.498 | macOS Bluetooth log | the Bluetooth connection to the roaster ends |
+| 00:23:12 | Artisan log | **OFF**. No further start of the bridge up to 00:23 |
+
+| Check | Reported by the tester | Confirmed by the logs |
+|---|---|---|
+| The packaged alert after the power was unplugged | it appeared | **Yes, for the stop and its reason.** Exit code 4 at 00:13:52.717 with the reason "The roaster had not answered for 5.0 s before that (3 commands unanswered)". The headline is in this build's code, as checked before the run. The app log does not record alerts |
+| The alert's Help button | it worked | **Not in the logs.** Neither the app log nor the macOS log records which window opened. Three menu commands between 00:15:42 and 00:17:18 are logged, without their names |
+| Manual recovery: Bluetooth reset, then a new start of the bridge | live readings returned | **Yes, for replies.** Reset at 00:17:55 – 00:18:05, start at 00:18:18.988, RFCOMM connected 2.5 s later, 549 bytes of replies in the first 15 seconds after ON. "Live readings" is the tester's observation |
+| The stop behavior | not something the tester can see | **Unchanged.** Both stops closed the roaster's port and stopped the bridge |
+| A start without a reset | not reported | **No connection.** The automatic start at 00:12:19, after the port had been closed at 23:58:53 with no reset in between, had no RFCOMM attempt and no data |
+| The second stop at 00:19:09 | not reported | The same pattern as the first: 5.0 s without a reply, three unanswered commands, then exit code 4. The logs do not show what caused it. No recovery attempt follows it in the logs |
+| Where the app ran | from a separate folder (planned) | **From `/Applications`.** The signed build that was installed there has been replaced by this test build |
+
+**Result, for the packaged test build `61bb0351…` (commit `c6bfea8`) only, in one run on one M2
+Lite, idle, heater off:** unplugging the roaster's power stopped the bridge with the packaged alert
+"Connection lost during an active session. The bridge stopped.", and its reason named 5.0 s
+without a reply and three unanswered commands. After the power came back, a Bluetooth reset (the
+service restart, then Bluetooth off and on) followed by a new start of the bridge connected, and
+replies returned. The stop behavior was unchanged. The Help button is the tester's observation.
+
+What this run does not show:
+
+- Anything about a signed or notarized build of this change. None existed at the time of this run.
+- The Help window's contents on screen, or which window the Help button opened.
+- When the power was unplugged and when it came back; neither is in any log.
+- Anything with the heater on.
+
 ## Simulator results
 
 No roaster and no Bluetooth are involved in anything in this section. The "roaster" is
@@ -628,10 +692,12 @@ Still pending:
   build `3195ebea…` two guided attempts failed at the power switch; see
   [that run](#guided-recovery-notarized-test-build-two-guided-failures-then-manual-recovery).
 - The new alert wording ("Connection lost during an active session. The bridge stopped.") in a
-  published build. On hardware it has been run from source at commit `f1825c9`, and in the
-  notarized test builds `3195ebea…` and `5bdc6388…`, where the logs show the stop and its reason;
-  see [that section](#idle-power-loss-test-with-source-commit-f1825c9) and the guided recovery
-  runs below it.
+  published build. On hardware it has been run from source at commit `f1825c9`, in the packaged
+  ad hoc test build of `c6bfea8` (hash `61bb0351…`), and in the notarized test builds `3195ebea…`
+  and `5bdc6388…`, where the logs show the stop and its reason; see
+  [the source run](#idle-power-loss-test-with-source-commit-f1825c9),
+  [the c6bfea8 package](#packaged-test-build-of-c6bfea8-idle-power-loss-and-manual-recovery) and
+  the guided recovery runs.
 - The bridge starting by itself with the ad hoc build `7630086f…`: reported, but the logs of that
   run show a start from the menu. It is confirmed for the signed build, and with the simulator.
 

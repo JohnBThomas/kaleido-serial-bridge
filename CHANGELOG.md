@@ -50,17 +50,21 @@
   port and stops. Tested with the simulator, and on hardware once, from source: commit `f1825c9`
   run with `python -m kaleido_serial_bridge`, in an idle power-loss test on one M2 Lite with the
   heater off. The tester saw the new alert with "5.0 s" and three unanswered commands, and the
-  logs confirm the stop and its reason. **No packaged or signed build of this change exists yet;
-  verification of one is pending.**
+  logs confirm the stop and its reason. Then once more in a packaged ad hoc test build of commit
+  `c6bfea8` (app CDHash `61bb0351c20def68b95b52e65c2baac09f5619a8`), run from `/Applications`: the
+  alert and its reason are confirmed by the logs, and the Help button by the tester. The notarized
+  test builds `3195ebea…` and `5bdc6388…` of later commits show the same stop and reason in their
+  logs. **A published build of this change is pending.**
 - Recovery help: after the roaster has been switched on again, starting the bridge alone may not
   reconnect. In both observed idle power-loss tests on one M2 Lite, a start of the bridge alone got
   no replies, and a manual Bluetooth reset (restart of the Bluetooth service, then Bluetooth off and
   on) followed by a new start of the bridge restored readings. Two tests on one roaster are not a
   guarantee. The app does not reset Bluetooth or reconnect by itself.
-- docs/EVIDENCE.md records two idle power-loss tests: the first with the signed 0.2.0 build, which
-  showed the old wording, and a repeat from source at commit `f1825c9`, which showed the new one.
-  In both, a start of the bridge without a Bluetooth reset got no replies, and a start after the
-  manual reset connected.
+- docs/EVIDENCE.md records three idle power-loss runs with a manual Bluetooth reset: the first with
+  the signed 0.2.0 build, which showed the old wording, a repeat from source at commit `f1825c9`,
+  and one with the packaged test build of `c6bfea8`, both of which showed the new one. In each, a
+  start of the bridge without a Bluetooth reset got no replies, and a start after the manual reset
+  connected.
 
 ## 0.2.0 — 2026-11-13
 
