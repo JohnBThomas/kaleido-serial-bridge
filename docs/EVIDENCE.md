@@ -736,6 +736,16 @@ reported and what the logs confirm are kept apart.
 
 The stale "Readings are back" is a defect of this release candidate.
 
+![The top of the first release candidate's Troubleshooting window, titled "Kaleido Serial Bridge Help", under the Reset Bluetooth & Restart Bridge button: "Readings are back" and "Recovered: replies from the roaster are arriving through the bridge."](images/evidence/rc1-stale-1-troubleshooting.png)
+
+![Artisan's readouts at the same moment: ET and BT both show UU](images/evidence/rc1-stale-2-artisan-uu.png)
+
+*First release candidate (`8ef1777d…`), 09:19:02. Both crops come from the same capture, the
+tester's screenshot. After a new connection loss, Troubleshooting still showed the earlier
+"Readings are back" (top) while Artisan's ET and BT showed `UU` (bottom). **An RC1 bug, fixed
+before release** in `2fa2bf0` and **verified on the second release candidate** (`d26e1b22…`, the
+released build); see the next section.*
+
 ### Release candidate 2 (`d26e1b22…`): the stale status fixed, guided recovery again
 
 One run, on 2026-11-14 between 09:38 and 09:44, with the signed, notarized second release
