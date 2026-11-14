@@ -377,6 +377,20 @@ class TestGuards:
         run(recovery, clock, {Phase.WAITING_FOR_ARTISAN})
         assert system.calls.count('restart_service') == 2
 
+    def test_clearing_forgets_a_finished_outcome_but_never_an_active_attempt(self, controller: BridgeController) -> None:
+        recovery, system, clock = make_recovery(controller)
+        assert not recovery.clear_outcome()  # nothing to clear
+        recovery.begin()
+        assert not recovery.clear_outcome() and recovery.phase is Phase.RUNNING  # progress is kept
+        run(recovery, clock, {Phase.WAITING_FOR_ARTISAN})
+        assert not recovery.clear_outcome() and recovery.phase is Phase.WAITING_FOR_ARTISAN
+        controller.stop()
+        run(recovery, clock, {Phase.FAILED})  # the bridge stopped before any reply
+        assert recovery.clear_outcome()
+        assert recovery.phase is Phase.IDLE and recovery.step_now is None and recovery.detail == ''
+        system.calls.clear()
+        assert recovery.begin() and recovery.attempts == 2  # and a new attempt can begin
+
     def test_nothing_happens_without_a_click(self, controller: BridgeController) -> None:
         recovery, system, _clock = make_recovery(controller)
         for _ in range(10):

@@ -660,6 +660,50 @@ class TestGuidedRecovery:
         assert 'Bluetooth port failed' in self.detail(delegate)
         assert len(delegate.ask.shown) == alerts and len(activations) == activated  # no alert of its own meanwhile
 
+    def test_a_new_disconnect_clears_an_earlier_success(self, launch: Callable[[], Any], sim: SimRoaster, system: Any) -> None:
+        """Seen on the release candidate: Help, opened from the alert of a second connection loss, still said "Readings are
+        back" from the attempt before, while Artisan showed no readings."""
+        delegate = self.after_connection_loss(launch, sim, system)
+        delegate.sheet.answers = [1]
+        delegate.reset_bluetooth_and_restart()
+        self.tick_until(delegate, lambda: self.title(delegate) == 'Click ON in Artisan', 'the prompt to click ON')
+        artisan = Artisan(delegate.controller.virtual_port)
+        artisan.on()
+        artisan.ask('{[RD A0]}')
+        self.tick_until(delegate, lambda: self.title(delegate) == 'Readings are back', 'the first success')
+        # the roaster is lost again: Artisan gives up and closes its port without CL AR
+        artisan.vanish()
+        wait_for(lambda: not delegate.controller.running(), what='the bridge to stop again')
+        delegate.ask.answers = [1]  # Help, in the new connection-loss alert
+        delegate.tick_(None)
+        assert delegate.ask.shown[-1][0] == 'Connection lost during an active session. The bridge stopped.'
+        # the reopened window does not claim a recovery that is no longer true
+        assert self.title(delegate) == '' and self.detail(delegate) == ''
+        assert bool(delegate.help_window.status_title.isHidden()) and bool(delegate.help_window.manual.isHidden())
+        assert bool(delegate.help_window.reset_button.isEnabled())
+        # a new attempt says "Readings are back" only once fresh replies arrive through the bridge
+        delegate.sheet.answers = [1]
+        delegate.reset_bluetooth_and_restart()
+        self.tick_until(delegate, lambda: self.title(delegate) == 'Click ON in Artisan', 'the prompt to click ON again')
+        for _ in range(5):
+            delegate.tick_(None)
+        assert self.title(delegate) == 'Click ON in Artisan'  # no replies yet, so no success
+        artisan = Artisan(delegate.controller.virtual_port)
+        artisan.on()
+        artisan.ask('{[RD A0]}')
+        self.tick_until(delegate, lambda: self.title(delegate) == 'Readings are back', 'the second success')
+        assert delegate.recovery.attempts == 2
+        artisan.off()
+
+    def test_the_confirmation_mentions_touch_id(self, launch: Callable[[], Any], sim: SimRoaster, system: Any) -> None:
+        delegate = self.after_connection_loss(launch, sim, system)
+        delegate.sheet.answers = [0]
+        delegate.reset_bluetooth_and_restart()
+        text = delegate.sheet.shown[-1][2]
+        assert ('macOS asks you to authorize the reset. You can use Touch ID when available or enter an administrator '
+                'password.') in text
+        assert 'macOS asks for an administrator password' not in text
+
     def test_closing_the_window_leaves_the_attempt_running(self, launch: Callable[[], Any], sim: SimRoaster, system: Any,
                                                              activations: list[str], quiet: dict[str, Any]) -> None:
         delegate = self.after_connection_loss(launch, sim, system)

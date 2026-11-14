@@ -137,6 +137,17 @@ class Recovery:
         self._enter(Step.CHECK_STOPPED, 'Checking that the bridge is stopped.')
         return True
 
+    def clear_outcome(self) -> bool:
+        """Forgets the outcome of a finished attempt, so that it is not shown as current after the bridge stopped again.
+        An attempt under way is left alone. Returns whether anything was cleared."""
+        if self.phase not in (Phase.SUCCEEDED, Phase.FAILED):
+            return False
+        log.info('recovery %d: its outcome is no longer current: the bridge has stopped since', self.attempts)
+        self.phase = Phase.IDLE
+        self.step_now = None
+        self.detail = ''
+        return True
+
     def step(self) -> None:
         """Does at most one step, or one look at what is being waited for. Never blocks, except while
         macOS shows its authorization dialog."""

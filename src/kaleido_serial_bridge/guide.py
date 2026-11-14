@@ -106,7 +106,8 @@ def help_topics(device: str) -> list[Topic]:
               '4.  Start the bridge and wait for "Waiting for Artisan".\n'
               '5.  In Artisan, click ON.\n\n'
               f'Instead of steps 3 and 4 you can click "{RECOVERY_BUTTON}" at the top of this window. It asks you first, '
-              'needs an administrator password for the restart of the Bluetooth service, and makes one attempt per click. '
+              'needs your authorization for the restart of the Bluetooth service (Touch ID when available, or an '
+              'administrator password), and makes one attempt per click. '
               'It does not work while the bridge is running. When the bridge has started, this window says so: then, if '
               'Artisan is still monitoring, click OFF, then ON. Otherwise, click ON.\n\n'
               'The bridge does not reset Bluetooth, reopen the port or start again on its own.'),
@@ -126,7 +127,8 @@ RECOVERY_CONFIRM = (
     'Reset Bluetooth and restart the bridge?',
     'Before you continue, check that the roaster is switched on again, idle, and that its heater is off.\n\n'
     'This makes one attempt:\n'
-    '1.  restart the Bluetooth service of macOS. macOS asks for an administrator password for this step.\n'
+    '1.  restart the Bluetooth service of macOS. macOS asks you to authorize the reset. You can use Touch ID when '
+    'available or enter an administrator password.\n'
     '2.  turn Bluetooth off, and on again two seconds later\n'
     "3.  wait for the roaster's serial port, then start the bridge once\n\n"
     'Every Bluetooth device of this Mac disconnects for a few seconds: keyboards, mice, trackpads and headphones '

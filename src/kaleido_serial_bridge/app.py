@@ -148,6 +148,12 @@ class AppDelegate(NSObject):
             self.refresh()
             event = self.controller.take_exit()
             recovering = self.recovery is not None and self.recovery.active
+            # "Readings are back" (or a failure) from an earlier attempt is not about this stop: the Help window, opened
+            # from the alert below, starts clean. An attempt under way keeps its progress.
+            recovery = self.recovery
+            cleared = event is not None and not recovering and recovery is not None and recovery.clear_outcome()
+            if cleared and recovery is not None and self.help_window is not None:
+                self.help_window.update_recovery(recovery.progress())
             if event is not None and event.code != EXIT_OK and not recovering:
                 self.report_failure(event)  # during a recovery attempt the Help window says why the bridge stopped instead
             if recovering:

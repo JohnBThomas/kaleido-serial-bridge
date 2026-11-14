@@ -21,7 +21,10 @@
   ("Click ON in Artisan", with "If Artisan is still monitoring, click OFF, then ON. Otherwise,
   click ON.", then "Readings are back", or failures) is shown in that window; closing it leaves an
   attempt running. The recovery never activates the app or opens an alert after the
-  confirmation. The menu item for the Help window is now "Troubleshooting…". That window now
+  confirmation. When the bridge stops again after a finished attempt, that attempt's status
+  ("Readings are back", or a failure) is cleared, so the window does not show an earlier success
+  after a new connection loss; an attempt under way keeps its progress. The confirmation says that
+  macOS asks to authorize the reset, with Touch ID when available or an administrator password. The menu item for the Help window is now "Troubleshooting…". That window now
   asks macOS to open it in the Space the user is in, also over a full-screen Artisan, instead
   of switching to the Space where it was last open (Settings and the Setup Guide are unchanged).
   With the notarized test build of `198d03f` (app CDHash `62973c3d…`) the tester reported it
