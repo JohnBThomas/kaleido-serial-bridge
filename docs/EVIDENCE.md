@@ -695,6 +695,47 @@ The logs do not record which Space layout each opening happened in, so the four 
 the tester's report. The same run also has two guided recoveries that ended with "recovery
 succeeded" (08:54:30, and 08:58:42 after the connection loss).
 
+### Release candidate 0.2.1 (`8ef1777d…`): update check, Troubleshooting, Touch ID, guided recovery
+
+One run, on 2026-11-14 between 09:15 and 09:21, with the signed, notarized release candidate of
+commit `753bddcfd4edb4742e9f74bb4b7828358f37b7e1` (disk image
+`KaleidoSerialBridge-0.2.1-rc-525f8ad9c4e6-arm64.dmg`, SHA-256
+`d1bc97c982b57e9cff4f12a3681f7cd3248300bdedaf58456bd122fc56e337e5`). The installed app and the
+running process (pid 25206, started 09:15:22) have the code directory hash
+`8ef1777d5b780031adab16f5af715dc5eb5dd61a` and report version 0.2.1. M2 Lite idle, heater off;
+Artisan 5.0.0 in a full-screen Space. The tester took a screenshot at 9:17 (the macOS log records
+a capture at 09:17:01.93; the image file is not on this Mac, so it was not reviewed here) and six
+more from 09:18:45 to 09:20:52, which were reviewed. What the screenshots show, what the tester
+reported and what the logs confirm are kept apart.
+
+| Time | Source | Event |
+|---|---|---|
+| 09:16:10 – 09:16:37 | app log, macOS log | guided recovery 1 (a first connection): service restarted, power cycle completed, the bridge started at 09:16:24.797, Artisan ON at 09:16:36, "recovery succeeded" at 09:16:37.807 |
+| 09:16:52 | macOS log, the app's process | one HTTPS request: TLS trust evaluated and passed, response status 304 (macOS revalidated its cached copy of the answer with GitHub), "finished successfully" |
+| 09:17 | screenshot (tester's report of it) | "Kaleido Serial Bridge is up to date", installed version 0.2.1, latest published release 0.2.0 |
+| 09:18:26.763 | app log | "CONNECTION LOST during an active session"; exit code 4 |
+| 09:18:45 | screenshot | the connection-loss alert over Artisan; Artisan shows `UU` for ET and BT, "Kaleido disconnected" |
+| 09:19:02 | screenshot | the Help window open over Artisan. It already says "Readings are back" and "Recovered: replies from the roaster are arriving through the bridge." Artisan still shows `UU` |
+| 09:19:21 | screenshot | the confirmation sheet on the Help window |
+| 09:19:35.616 | app log | guided recovery 2 begun by the user |
+| 09:19:40 | screenshot | macOS's prompt "Allow administrator access for "Kaleido Serial Bridge"?" with "Touch ID or enter your password" and "Use Password…" |
+| 09:19:36 – 09:19:58 | macOS log | SecurityAgent "AEWP notarized 1, biometry prohibited 0"; coreauthd starts a Touch ID match at 09:19:36.247 and again at 09:19:56.576; the authorization succeeds at 09:19:57.992 |
+| 09:19:59.862 – 09:20:10.819 | app log | "Bluetooth service restarted", "Bluetooth power cycle completed", "bridge started"; one "real port … opened" at 09:20:10.803 |
+| 09:20:16 | screenshot | "Click ON in Artisan" with "If Artisan is still monitoring, click OFF, then ON. Otherwise, click ON." |
+| 09:20:42, 09:20:45 | Artisan log | **OFF**, **ON** |
+| 09:20:46.801 | app log | "roaster replies received through the bridge; recovery succeeded" |
+| 09:20:52 | screenshot | Artisan shows ET 77.2 and BT 78.0, "Kaleido connected" |
+
+| Check | Screenshot | Reported by the tester | Confirmed by the logs |
+|---|---|---|---|
+| Check for Updates… | the 9:17 screenshot shows "Kaleido Serial Bridge is up to date" with installed version 0.2.1 and latest published release 0.2.0 (as the tester reports it; the image was not available for review here) | up to date, installed 0.2.1, latest 0.2.0 | **The request.** One HTTPS request from the app at 09:16:52, completed successfully, and a screenshot capture at 09:17:01.93. The app does not log the text it showed |
+| Help over full-screen Artisan | Help window over Artisan (09:19:02) | it opened over full-screen Artisan | **Yes.** Artisan was in a full-screen Space (Spaces configuration, 09:14:45), and the Dock logged no Space switch in the whole run |
+| Touch ID offered, authorization succeeded | the prompt offers Touch ID and "Use Password…" (09:19:40) | Touch ID appeared | **Yes, both.** Eligible ("biometry prohibited 0"), a Touch ID match started, and the authorization succeeded at 09:19:57.992. Which credential completed it is in neither the screenshot nor the log, so this run shows Touch ID offered, not used |
+| Live ET and BT after guided recovery | ET 77.2, BT 78.0, "Kaleido connected" (09:20:52) | they returned | **Yes.** Recovery 2 went through every step; one open of the port; Artisan OFF and ON; replies at 09:20:46 |
+| The status shown when Help opened after the connection loss | "Readings are back" while Artisan showed `UU` (09:19:02) | stale | **A defect.** It was the outcome of recovery 1 (09:16:37), left in the window after the connection loss at 09:18:26 |
+
+The stale "Readings are back" is a defect of this release candidate.
+
 ## Pending
 
 Hardware results exist for three packaged builds, two local ad hoc builds and the signed build:
