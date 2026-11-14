@@ -736,6 +736,13 @@ reported and what the logs confirm are kept apart.
 
 The stale "Readings are back" is a defect of this release candidate.
 
+![The Troubleshooting window of the first release candidate showing "Readings are back" and "Recovered: replies from the roaster are arriving through the bridge.", while Artisan's ET and BT read UU](images/evidence/rc1-stale-readings-are-back.png)
+
+*First release candidate (`8ef1777d…`), 09:19:02, cropped from the tester's screenshot. After a new
+connection loss, Troubleshooting still showed the earlier "Readings are back" while Artisan showed
+`UU`. **An RC1 bug, fixed before release** in `2fa2bf0` and **verified on the second release
+candidate** (`d26e1b22…`, the released build); see the next section.*
+
 ### Release candidate 2 (`d26e1b22…`): the stale status fixed, guided recovery again
 
 One run, on 2026-11-14 between 09:38 and 09:44, with the signed, notarized second release
