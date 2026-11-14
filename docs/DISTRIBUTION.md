@@ -137,10 +137,11 @@ has the CDHash `a9a59f259cc3528af70e43abbed537cb544186b0`.
   that asked, twice on 2026-11-13. After a build, check where it points:
 
   ```
-  log show --last 1d --style compact --predicate 'process == "backgroundtaskmanagementd" AND eventMessage CONTAINS "updating item" AND eventMessage CONTAINS "Kaleido"' | tail -1
+  /usr/bin/log show --last 1d --style compact --predicate 'process == "backgroundtaskmanagementd" AND eventMessage CONTAINS "updating item" AND eventMessage CONTAINS "Kaleido"' | tail -1
   ```
 
-  The path after `URL to:` in the last line is where the item points now.
+  The path after `URL to:` in the last line is where the item points now. Write `/usr/bin/log` in
+  full: in zsh, `log` alone is a shell builtin and prints nothing here.
 - **Architecture.** The build is arm64 only. The problem this app works around has only been
   reported on Apple silicon.
 - **Updates.** There is no updater. A new version is a new disk image.
