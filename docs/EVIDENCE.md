@@ -667,6 +667,34 @@ What this run does not show:
   retry itself has been exercised with the simulator only.
 - When the power was unplugged and when it came back; neither is in any log.
 
+### Troubleshooting in the current Space: notarized build `62973c3d…`
+
+The Developer ID signed, hardened runtime, notarized test build of commit
+`198d03f013890cca2ade3f1560a411813dbeb194` (disk image
+`KaleidoSerialBridge-0.2.0-troubleshooting-spaces-198d03f-devid-notarized-test-arm64.dmg`, SHA-256
+`add88b96d9a51d3a2df5d5257261396e1f7a602fe48dce3c6627059f29c07773`), installed in
+`/Applications`. The installed app and the running process (pid 23276, started 08:52:57 on
+2026-11-14) have the code directory hash `62973c3dac0826cd10525a41791ab530212cdb0b`. That commit
+gives the Troubleshooting window the collection behaviors moveToActiveSpace and
+fullScreenAuxiliary and orders it front before the app is activated. Everything in this section is
+about that build.
+
+| Check | Reported by the tester | Confirmed by the logs |
+|---|---|---|
+| Troubleshooting from the menu bar, Artisan full screen | opened in the current Space: **passed** | see below |
+| Troubleshooting from the menu bar, Artisan on a second regular desktop | opened in the current Space: **passed** | see below |
+| Troubleshooting from the connection-loss alert, Artisan full screen | opened in the current Space: **passed** | see below |
+| Troubleshooting from the connection-loss alert, Artisan on a second regular desktop | opened in the current Space: **passed** | see below |
+
+What the logs show for this run, from 08:52:57 on: menu commands in the app at 08:53:34,
+08:53:40 and 08:56:10, each with the app becoming the front app; a connection loss at 08:57:20.840
+and the app becoming the front app for its alert at 08:57:21.375. The Dock logged **no** "switching
+to space … ordered on non-visible space" for this app's windows at any time in the run. With the
+previous build (`5bdc6388…`) the Help button of the alert caused exactly such a switch (01:44:01).
+The logs do not record which Space layout each opening happened in, so the four arrangements are
+the tester's report. The same run also has two guided recoveries that ended with "recovery
+succeeded" (08:54:30, and 08:58:42 after the connection loss).
+
 ## Pending
 
 Hardware results exist for three packaged builds, two local ad hoc builds and the signed build:
@@ -684,10 +712,11 @@ Still pending:
 
 - The guided Bluetooth recovery: with the notarized build `5bdc6388…` the tester saw and used
   Touch ID successfully in the administrator prompt, a guided recovery after a loss of power
-  worked once, and the completion update left the tester in Artisan's Space. Open: the Help button
-  of the connection-loss alert switched to the Space where the Help window was, not the one the
-  tester was in. A change that asks macOS to open Troubleshooting in the active Space has been
-  made and is not yet verified on hardware; see
+  worked once, and the completion update left the tester in Artisan's Space. The Help button of
+  the alert then switched to the Space where the Help window was; with the build `62973c3d…`
+  Troubleshooting opened in the current Space from the menu bar and from the alert, with Artisan
+  full screen and on a second desktop, as the tester reported
+  ([that section](#troubleshooting-in-the-current-space-notarized-build-62973c3d)). See also
   [that run](#guided-recovery-after-a-loss-of-power-notarized-build-5bdc6388). With the earlier
   build `3195ebea…` two guided attempts failed at the power switch; see
   [that run](#guided-recovery-notarized-test-build-two-guided-failures-then-manual-recovery).

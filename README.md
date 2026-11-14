@@ -301,8 +301,8 @@ the menu): "Bluetooth service restarted", "Bluetooth power cycle completed", "br
 After the confirmation, everything the recovery has to say appears in the Help window. It does not
 open alerts, make the app active or bring the window forward, so you can switch to Artisan, in
 another Space too, and click OFF and ON or ON there. macOS's own password dialog is separate.
-Troubleshooting itself is meant to open in the Space you are in, also over a full-screen Artisan;
-that has not been verified on hardware yet.
+Troubleshooting opens in the Space you are in, also over a full-screen Artisan. That was checked
+on one Mac with one test build, from the menu bar and from the connection-loss alert.
 
 Turning Bluetooth off and on uses a function of macOS's IOBluetooth framework that Apple does not
 document (the one `blueutil` uses). If it is missing or has no effect, that step fails and the

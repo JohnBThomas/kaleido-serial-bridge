@@ -24,7 +24,10 @@
   confirmation. The menu item for the Help window is now "Troubleshooting…". That window now
   asks macOS to open it in the Space the user is in, also over a full-screen Artisan, instead
   of switching to the Space where it was last open (Settings and the Setup Guide are unchanged).
-  **Not yet verified on hardware.**
+  With the notarized test build of `198d03f` (app CDHash `62973c3d…`) the tester reported it
+  opening in the current Space from the menu bar and from the connection-loss alert, with Artisan
+  full screen and on a second desktop; the macOS log shows no switch of Space for the app's
+  windows in that run.
   After the restart of the Bluetooth service it waits until Bluetooth reports on before asking to
   turn it off, and repeats a power request without effect every 2 s within the step's limit (on
   hardware a request sent too early was rejected and two attempts failed). Every step, retry and
