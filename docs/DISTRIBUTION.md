@@ -1,8 +1,13 @@
 # Building, signing and notarizing
 
-**Release policy:** only source is published for now. No binary is offered for download until a
-build signed with a Developer ID has been notarized and that build has been verified to open and
-work on a Mac other than the one it was built on.
+**Release policy:** a binary is offered only as a disk image that is signed with a Developer ID,
+notarized by Apple and stapled, and only after the checks in step 3 have passed on the Mac that
+built it. Until that image has also been installed and opened on a second Mac (step 4), it is
+published as a **pre-release**, and its release notes say that it was checked on the build Mac
+only. The pre-release mark comes off after the second-Mac check.
+
+Version 0.2.0 is such a pre-release. What was and was not checked for it is listed under
+[State of 0.2.0](#state-of-020).
 
 ## Local test build
 
@@ -33,9 +38,9 @@ python tests/packaged_app_check.py "$TMPDIR/kaleido-serial-bridge-build/dist/Kal
 | The Team ID | developer.apple.com » Membership |
 | Credentials for the notary service: an Apple ID with an **app-specific password** (appleid.apple.com), or an App Store Connect API key | stored once in the keychain, see below |
 
-None of these exist on the machine this was prepared on (`security find-identity -v -p codesigning`
-lists no identity), so **the signing and notarization steps below have not been run**. They follow
-Apple's and PyInstaller's documented procedure.
+For 0.2.0 all of these were in place, and the steps below were run on 2026-11-13, except step 4
+on a second Mac. They follow Apple's and PyInstaller's documented procedure.
+`security find-identity -v -p codesigning` shows whether the certificate and its key are usable.
 
 Before the first release, also decide on:
 
@@ -76,12 +81,42 @@ Before the first release, also decide on:
    `xcrun notarytool log <submission id> --keychain-profile "kaleido-bridge-notary"` lists the
    files it objects to.
 
-4. Test the stapled disk image on a second Mac, or on this one after
-   `xattr -w com.apple.quarantine "0081;00000000;Safari;" <the dmg>`: it must open without a
-   Gatekeeper warning.
+4. Test the stapled disk image on a second Mac: download it through a browser, open it, drag the
+   app into Applications and open it from there. It must open without a Gatekeeper refusal. Until
+   this has been done, the release stays a pre-release.
 
-5. Publish the disk image together with the `SHA256SUMS.txt` from step 3. With both files in one
-   folder, a download can be checked with `shasum -a 256 -c SHA256SUMS.txt`.
+   On the build Mac alone, Gatekeeper's verdict can be asked without opening the app, for the disk
+   image and for a copy of the app that is marked as downloaded:
+
+   ```
+   spctl --assess --type open --context context:primary-signature -vv <the dmg>
+   xattr -rw com.apple.quarantine "0083;00000000;Safari;" <a copy of the app>
+   spctl --assess --type execute -vv <that copy>
+   ```
+
+   Both should answer `accepted` and `source=Notarized Developer ID`. This does not replace the
+   second Mac.
+
+5. Publish the disk image together with the `SHA256SUMS.txt` from step 3, as a pre-release if
+   step 4 has not been done on a second Mac. With both files in one folder, a download can be
+   checked with `shasum -a 256 -c SHA256SUMS.txt`.
+
+## State of 0.2.0
+
+The disk image of the 0.2.0 pre-release was built, signed, notarized and stapled on 2026-11-13. It
+has the SHA-256 `8d93e48150a8d98ec0c15e27975da071241e8b90ec7cb5cfc2090cb6302a8b1e`. The app in it
+has the CDHash `a9a59f259cc3528af70e43abbed537cb544186b0`.
+
+| Check | Result |
+|---|---|
+| Developer ID signature of the disk image, of the app and of every binary in it, with the hardened runtime | valid |
+| Notarization | accepted. The ticket is stapled to the disk image, not to the app inside it |
+| Gatekeeper on the notarized disk image, on the build Mac | accepted |
+| Gatekeeper on a quarantined copy of the app, on the build Mac | accepted |
+| `shasum -a 256 -c SHA256SUMS.txt` | OK |
+| Installation on a second Mac | **not tested** |
+| First launch without a network connection | **not tested** |
+| Operation with a roaster | **not tested** with this build. See [EVIDENCE.md](EVIDENCE.md) for the builds that were |
 
 ## Notes
 
@@ -91,8 +126,21 @@ Before the first release, also decide on:
 - **Bluetooth permission.** The app does not use Bluetooth APIs. It runs `system_profiler` to ask
   whether the roaster is connected. `Info.plist` carries a usage description in case macOS asks
   the user for consent; in the test runs no such request was logged.
+- **Stapling.** `packaging/notarize.sh` staples the ticket to the disk image. The app inside
+  carries no ticket of its own, so a first launch on a Mac without a network connection has not
+  been shown to work.
 - **Login item.** "Open the app at login" uses `SMAppService`. macOS ties the item to the signed
   app; test it with the signed build in `/Applications`.
+- **The self-test moves the login item.** `packaging/build.sh` and `tests/packaged_app_check.py`
+  run the built app's self-test, which asks macOS for the state of the login item. While "Open the
+  app at login" is on for an installed copy, macOS was seen to move that login item to the copy
+  that asked, twice on 2026-11-13. After a build, check where it points:
+
+  ```
+  log show --last 1d --style compact --predicate 'process == "backgroundtaskmanagementd" AND eventMessage CONTAINS "updating item" AND eventMessage CONTAINS "Kaleido"' | tail -1
+  ```
+
+  The path after `URL to:` in the last line is where the item points now.
 - **Architecture.** The build is arm64 only. The problem this app works around has only been
   reported on Apple silicon.
 - **Updates.** There is no updater. A new version is a new disk image.

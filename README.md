@@ -20,12 +20,28 @@ Artisan  <-->  virtual port (~/.kaleido-bridge/cu.Roaster_bridge)  <-->  this ap
   Artisan crashes or the Bluetooth link is lost while it is heating has not been verified, with or
   without the bridge.
 - **It is not suitable for unattended operation.** Stay with the roaster while it is hot.
-- **There is no binary download.** The app can be built from source (see [Build](#build)). A
-  public binary will only be released once Developer ID signing and notarization have been verified.
+- **The download is a pre-release.** A disk image for Apple silicon, signed with a Developer ID
+  and notarized by Apple, is on the
+  [Releases](https://github.com/JohnBThomas/kaleido-serial-bridge/releases) page. It was checked
+  on the Mac that built it and nowhere else. See [Evidence](#evidence).
 
 ## Menu bar
 
 ![Kaleido Serial Bridge menu showing Receiving roaster replies](docs/menu-bar-screenshot.png)
+
+## Install
+
+1. Download the disk image, `KaleidoSerialBridge-<version>-arm64.dmg`, from the
+   [Releases](https://github.com/JohnBThomas/kaleido-serial-bridge/releases) page.
+2. Open it.
+3. Drag **Kaleido Serial Bridge** into **Applications**, and open it from there.
+
+It has no Dock icon and no window of its own; look for its symbol in the menu bar. A setup guide
+opens the first time; see [Setup](#setup). It needs a Mac with Apple silicon and macOS 13 or later,
+and nothing else installed.
+
+To check the download, put `SHA256SUMS.txt` from the same page into the same folder and run
+`shasum -a 256 -c SHA256SUMS.txt`.
 
 ## Background
 
@@ -45,6 +61,14 @@ close it, so there is no second open.
 Hardware results and simulator results are kept apart. Details, with timelines:
 [docs/EVIDENCE.md](docs/EVIDENCE.md).
 
+**The signed download** — the disk image of the 0.2.0 pre-release, signed with a Developer ID and
+notarized by Apple. The app in it has the CDHash `a9a59f259cc3528af70e43abbed537cb544186b0`.
+
+- Gatekeeper accepted the notarized disk image, and a quarantined copy of the app, on the Mac that
+  built them. The notarization ticket is stapled to the disk image.
+- Not tested: installation on a second Mac, a first launch without a network connection, and
+  operation with a roaster. None of the hardware results below was obtained with this build.
+
 **On hardware** — one Kaleido M2 Lite, one Apple silicon MacBook Pro, macOS 27.2, Artisan 5.0.0,
 roaster idle, heater off:
 
@@ -59,8 +83,8 @@ roaster idle, heater off:
     for the next attach. The sequence the logs establish for it is **OFF → ON**, and only that. It
     did so twice, the second time after an 84-minute session. An earlier start of that build, the
     first after another restart of the Mac, did not lead to a connection.
-  - Build with the CDHash `7630086f5c8316900d0bbec2ef9a310eb11cfe2b`, the current local test
-    build of this source: the **first connection** after a start, **OFF → ON**,
+  - Build with the CDHash `7630086f5c8316900d0bbec2ef9a310eb11cfe2b`, the later ad hoc test
+    build, made from this source: the **first connection** after a start, **OFF → ON**,
     **⌘Q → relaunch → ON**, and the **app opening at login**. The tester saw each of these work,
     and the logs confirm each: replies returned every time, through one open of the physical port
     and one Bluetooth connection.
@@ -78,7 +102,8 @@ and a run of unmodified Artisan 5.0.0 source through the prototype bridge.
 - other Kaleido models, other Macs and other macOS versions
 - behavior during an Artisan crash or a loss of the Bluetooth link **while the roaster is heating**
 - the Bluetooth link staying up for hours with no Artisan attached
-- a signed and notarized build
+- the signed download on a second Mac, its first launch without a network connection, and its
+  operation with a roaster
 
 ## Requirements
 
@@ -105,7 +130,8 @@ The result, `dist/KaleidoSerialBridge-<version>-arm64.dmg`, contains a self-cont
 Python, pyserial and PyObjC). It is signed ad hoc: it opens normally on the Mac that built it. On
 another Mac, macOS refuses it until you allow it in **System Settings » Privacy & Security »
 Open Anyway**. Signing and notarizing for distribution is described in
-[docs/DISTRIBUTION.md](docs/DISTRIBUTION.md); those steps have not been run yet.
+[docs/DISTRIBUTION.md](docs/DISTRIBUTION.md); that is how the disk image on the Releases page was
+made.
 
 To install your build: open the disk image, drag **Kaleido Serial Bridge** onto **Applications**
 and open it from there. It has no Dock icon and no window of its own; look for its symbol in the
