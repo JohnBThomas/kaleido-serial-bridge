@@ -495,6 +495,59 @@ recovery after a loss of power on the M2 Lite. None of these has been run. **Unt
 recovery in a build with the hardened runtime (a signed build), including the
 `com.apple.security.device.bluetooth` entitlement and `NSAppleScript` under it.
 
+### Guided recovery, notarized test build: two guided failures, then manual recovery
+
+One run, on 2026-11-14, with the Developer ID signed, hardened runtime, notarized test build of the
+tree of commits `2146aa9` and `dde9e1a` (disk image
+`KaleidoSerialBridge-0.2.0-guided-recovery-ee47364e976c-devid-notarized-test-arm64.dmg`, SHA-256
+`7bb4ef0d94d6bb26ee2c4037fc7d2866aa1bfbe5c31f97ec907a0e3bd4171fd3`), installed in
+`/Applications` at 01:13. The installed app and the running process (pid 14928, started 01:19:39)
+both have the code directory hash `3195ebea9d3394a67cb0978d6b31d06430af0769`. Everything in this
+section is about that build. M2 Lite idle, heater off; Artisan 5.0.0, the installed app.
+
+**Result: two guided attempts after a loss of power failed; a manual start of the bridge then
+connected and live readings returned.** The app does not log its recovery steps, so which step
+each attempt reported is inferred from the macOS log, as described below.
+
+| Time | Source | Event |
+|---|---|---|
+| 01:20:23 – 01:20:40 | macOS log, app log | a guided attempt before the power was unplugged, not part of the report: authorization succeeded at 01:20:25.6, `bluetoothd` restarted at 01:20:25.7, a Bluetooth permission prompt of macOS for the app was answered at 01:20:28.4, the app's power-off request was accepted at 01:20:28.8 (off at 01:20:28.87), its power-on request at 01:20:31.3 (on at 01:20:31.62), the bridge started at 01:20:38.836, RFCOMM connected at 01:20:40.488 |
+| 01:20:46 | Artisan log, app log | **ON**. Session 1 attaches |
+| 01:21:23.486 | app log | "CONNECTION LOST during an active session"; exit code 4. Artisan keeps running |
+| 01:22:00.2 – 01:22:01.8 | macOS log | **guided attempt 1** (Artisan still ON): the authorization dialog, which SecurityAgent marked "AEWP notarized 1, biometry prohibited 0", succeeds at 01:22:01.755. `bluetoothd` restarts at 01:22:01.857 |
+| 01:22:02.832 | macOS log, in the app's process | the app's power-off request, while the app's Bluetooth connection to the restarted service was still being re-established ("XPC connection interrupted, resetting" at 01:22:01.830): "updateBTPowerStateTo … inState: 0, Current State: 2", then "API MISUSE: … can only accept this command while in the powered on state". Bluetooth is not switched off. The new service reports "on" at 01:22:03.319. No power-on request follows |
+| 01:22:05 | Artisan log | **OFF** |
+| 01:22:22.5 – 01:22:24.6 | macOS log | **guided attempt 2**: authorization succeeds at 01:22:24.493; `bluetoothd` restarts at 01:22:24.587 |
+| 01:22:25.332 | macOS log, in the app's process | the same rejection of the power-off request, "Current State: 2" and "API MISUSE". The new service reports "on" at 01:22:26.030. No power-on request follows |
+| 01:23:10.476 | macOS log, app log | a menu command: the tester starts the bridge. RFCOMM connection attempt at 01:23:10.486, connected at 01:23:10.929 |
+| 01:23:27 | Artisan log, app log | **ON**. Session 1 attaches; the tester saw live ET and BT |
+
+| Check | Reported by the tester | Confirmed by the logs |
+|---|---|---|
+| The alert after the power was unplugged | the new alert appeared | **Yes, for the stop.** Exit code 4 at 01:21:23.490 |
+| Guided attempt 1 | the app reported that Bluetooth did not reset | **The step is inferred, not logged.** The service restarted; Bluetooth was not switched off, because macOS rejected the power-off request; no power-on request was made. That fits a failure at "Wait for Bluetooth to turn off" (limit 10 s, so at about 01:22:13). Artisan was turned OFF at 01:22:05, before that |
+| Guided attempt 2 | it failed again | **Same as attempt 1**, at about 01:22:35 by the same reasoning |
+| `bluetoothd` restarted | not something the tester can see | **Yes, in both attempts** (new processes at 01:22:01.857 and 01:22:24.587) |
+| Bluetooth cycled off and on | not something the tester can see | **No, in neither attempt.** It did in the attempt at 01:20, where the app's Bluetooth connection was new |
+| Manual start | live ET and BT returned | **Yes, for replies.** RFCOMM connected 0.44 s after the start; Artisan attached at 01:23:27 |
+| Touch ID in the administrator prompt | not yet reported | SecurityAgent logged "AEWP notarized 1, biometry prohibited 0" for all three prompts, and found Touch ID available. Whether the dialog offered it, and whether it was used, is not in the log |
+| Focus and Spaces during the attempts | not yet reported | The Dock switched Spaces three times, at 01:22:01.9, 01:22:24.6 and 01:23:00.4, each time for a window of **Artisan**, not of this app. The first two came right after the authorization dialog closed and macOS brought Artisan forward. After the confirmations of attempts 1 and 2, this app did not make itself the front app; it became front only when the Space was changed (01:22:08.7, 01:22:30.1, 01:22:46.2). During the attempt at 01:20 it became front at 01:20:30.4, right after the Bluetooth permission prompt closed |
+
+**Why the guided attempts failed, as far as the logs show:** after the restart of `bluetoothd`, the
+app waited only until a `bluetoothd` process existed and the power state could be read. In the
+attempts after the first one, its own connection to Bluetooth was still being re-established at
+that moment, and macOS rejected the power-off request. The recovery then waited 10 s for "off",
+which never came, and stopped without starting the bridge. In the first attempt the connection was
+new, and the permission prompt delayed the request by 2.4 s until the service was on. The
+power-on step was never reached.
+
+**What this run shows besides:** the restart of `bluetoothd` had taken effect in both failed
+attempts, and a start of the bridge after the second one connected at once, without Bluetooth
+being switched off and on. One run; it does not show that the restart alone is enough in general.
+
+Not shown: the exact text the app displayed for each failure (the app does not log it), Touch ID
+in the dialog, and the focus result as the tester saw it.
+
 ## Pending
 
 Hardware results exist for three packaged builds, two local ad hoc builds and the signed build:
@@ -510,9 +563,11 @@ Hardware results exist for three packaged builds, two local ad hoc builds and th
 
 Still pending:
 
-- The guided Bluetooth recovery on hardware, with the test build `1640c79e…`: the administrator
-  prompt, the Bluetooth reset and a recovery on the M2 Lite. Under the hardened runtime it is
-  untested. See [the checks without hardware](#guided-bluetooth-recovery-checks-without-hardware).
+- The guided Bluetooth recovery on hardware. With the notarized test build `3195ebea…` two guided
+  attempts after a loss of power failed at the power switch, and a manual start recovered; see
+  [that run](#guided-recovery-notarized-test-build-two-guided-failures-then-manual-recovery).
+  A successful guided recovery after a loss of power is still pending, and so are the tester's
+  results on Touch ID and on focus.
 - The new alert wording ("Connection lost during an active session. The bridge stopped.") in a
   packaged build. It has been run on hardware only from source, at commit `f1825c9`, in one idle
   power-loss test; see [that section](#idle-power-loss-test-with-source-commit-f1825c9).
