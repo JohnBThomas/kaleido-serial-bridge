@@ -394,8 +394,65 @@ What this run does not show:
 session. The bridge stopped.", and it adds whether the roaster had stopped answering before the
 port closed. The recovery help says that a roaster switched on again may need a manual Bluetooth
 reset before the bridge is started again. The stop behavior is unchanged. These changes are in
-`src/`, so this source is no longer the signed build. The new texts have been checked with the
-simulator only.
+`src/`, so this source is no longer the signed build. The new alert was then run on hardware
+from source; see the next section. No packaged build of it exists yet.
+
+### Idle power-loss test with source commit `f1825c9`
+
+One run, on 2026-11-13, of this source at commit `f1825c9379896c71de2a512bff7ebf8c3b7bfd48` on the
+branch `power-loss-alert`. **It is a source run, not a build:** the app was started from Terminal
+with `python -m kaleido_serial_bridge` in the repository's Python environment (Python 3.14,
+pyserial 3.5), as one process for the whole run. The module was loaded from the repository's
+`src/`. The working tree was clean and its source files were last changed before that commit was
+made. Nothing in this section is about the signed build or any other build. Same Mac (macOS 27.2),
+same Kaleido M2 Lite, idle, heater off; Artisan 5.0.0 (build b03f31b6c), the installed app, as one
+process throughout, Comm Port set to the virtual port. Before the run the installed app's bridge
+was stopped (23:39:41) and the app quit.
+
+| Time | Source | Event |
+|---|---|---|
+| 23:40:04 – 23:40:14 | macOS log | Bluetooth reset with the tester's local script (kept outside this repository): `sudo` at 23:40:04, the Bluetooth service restarts at 23:40:10.2, Bluetooth off at 23:40:11.85 and on at 23:40:14.24 |
+| 23:40:33.645 | app log | the source app starts the bridge by itself as it opens ("Start the bridge when the app opens" is on; no menu command in the app before it). The port is opened at 23:40:33.646 |
+| 23:40:33.636 – 23:40:34.482 | macOS Bluetooth log | RFCOMM connection attempt for that open, reported connected 0.8 s later |
+| 23:40:56 | Artisan log, app log | **ON**. Session 1 attaches; 549 bytes of replies in the first 15 seconds |
+| 23:41:27.97 | macOS Bluetooth log | the last data from the roaster reaches the Mac. Artisan's next three commands go out at 23:41:29.44, 23:41:30.94 and 23:41:32.44 and get no reply. Neither the roaster's port nor the app log reports an error |
+| 23:41:32.974 | macOS Bluetooth log | the serial port profile logs an update of the RFCOMM port properties, as in the first run. The log does not show what caused it |
+| 23:41:32.982 | app log | "session 1: CONNECTION LOST during an active session: the virtual port was closed and a session was open at the roaster (opened by {[SC AR]}) and CL AR was not delivered after 36.8 s \| 27 commands delivered to the roaster, 1233 bytes passed to Artisan \| The roaster had not answered for 5.0 s before that (3 commands unanswered).", followed by "the bridge cannot tell why …" |
+| 23:41:32.985 – 23:41:32.988 | app log | the bridge closes the roaster's port and stops with exit code 4 |
+| 23:41:33 | Artisan log | Artisan tries to open the virtual port again and gets "No such file or directory". Artisan keeps running |
+| 23:41:33.139 | macOS Bluetooth log | the Bluetooth connection to the roaster ends and the serial port is marked disconnected, 0.15 s after the bridge closed the port |
+| 23:43:29.534 | macOS log, app log | a menu command in the source app; the bridge starts and opens the port, with no Bluetooth reset since the stop (the same Bluetooth service process since 23:40:10). No RFCOMM attempt appears in the macOS log, no data comes from the roaster, and Artisan does not attach. The bridge is stopped at 23:43:55.3 |
+| 23:44:00 – 23:44:11 | macOS log | Bluetooth reset with the same script: `sudo` at 23:44:00.7, the Bluetooth service restarts at 23:44:06.6, Bluetooth off at 23:44:08.19 and on at 23:44:10.58 |
+| 23:44:46 | Artisan log | **OFF** |
+| 23:44:50.893 | macOS log, app log | a menu command in the source app; the bridge starts and opens the port at 23:44:50.896 |
+| 23:44:50.889 – 23:44:52.107 | macOS Bluetooth log | RFCOMM connection attempt for that open, reported connected 1.2 s later |
+| 23:45:04 | Artisan log, app log | **ON**. Session 1 attaches; 549 bytes of replies in the first 15 seconds, and the app shows "Receiving roaster replies" |
+
+| Check | Reported by the tester | Confirmed by the logs |
+|---|---|---|
+| The new alert after the power was unplugged | "Connection lost during an active session. The bridge stopped." appeared | **Yes, for the stop and its reason.** Exit code 4 at 23:41:32.988. The app log does not record alerts; the headline for this exit code is in this commit's source, and the alert's text is the same stop reason the log line carries |
+| The roaster's silence in the alert | 5.0 s without a reply, three commands unanswered | **Yes.** "The roaster had not answered for 5.0 s before that (3 commands unanswered)" in the app log. The macOS log shows the last data at 23:41:27.97 and three unanswered commands after it |
+| Artisan was still open | not reported | **Yes.** No quit in Artisan's log; it tried to open the virtual port again at 23:41:33 |
+| The stop behavior | not something the tester can see | **Unchanged.** The bridge closed the roaster's port and stopped, as before |
+| A start of the bridge alone after the power came back | not reported | **No connection.** The start at 23:43:29 had no Bluetooth reset before it, no RFCOMM attempt and no data from the roaster |
+| After the Bluetooth reset and a new start | live ET and BT returned | **Yes, for replies.** RFCOMM connection 1.2 s after the open at 23:44:50.896 and 549 bytes of replies in the first 15 seconds. ET and BT are the tester's observation |
+
+**Result, for source commit `f1825c9` run from source, in one run on one M2 Lite, idle, heater
+off:** with Artisan monitoring, unplugging the roaster's power stopped the bridge with the new alert,
+"Connection lost during an active session. The bridge stopped.", and the stop reason said that the
+roaster had not answered for 5.0 s (3 commands unanswered). Artisan stayed open. The bridge closed
+the roaster's port and stopped, as before. After the power came back, a start of the bridge without
+a reset got no replies and no RFCOMM attempt. After a restart of the Bluetooth service followed by
+Bluetooth off and on, the next start connected and replies returned.
+
+What this run does not show:
+
+- Anything about a packaged or signed build of this source. None has been made.
+- When the power was unplugged and when it came back; neither is in any log.
+- Whether the reset was needed because of the loss of power or because the port had been closed.
+- The alert as drawn on screen. That is the tester's observation; the app log records the stop
+  reason, not the alert.
+- Anything with the heater on.
 
 ## Simulator results
 
@@ -430,9 +487,9 @@ Hardware results exist for three packaged builds, two local ad hoc builds and th
 
 Still pending:
 
-- The new alert wording ("Connection lost during an active session. The bridge stopped.") and the
-  new recovery help on hardware. They are in this source but in no build that has been run on a
-  roaster; the idle power-loss test showed the old wording.
+- The new alert wording ("Connection lost during an active session. The bridge stopped.") in a
+  packaged build. It has been run on hardware only from source, at commit `f1825c9`, in one idle
+  power-loss test; see [that section](#idle-power-loss-test-with-source-commit-f1825c9).
 - The bridge starting by itself with the ad hoc build `7630086f…`: reported, but the logs of that
   run show a start from the menu. It is confirmed for the signed build, and with the simulator.
 
@@ -444,9 +501,9 @@ Until these have been run, nothing here says that they work.
 - **behavior during an Artisan crash or a loss of the Bluetooth link while the roaster is
   heating**, with or without the bridge. All hardware runs were idle with the heater off.
 - how a lost Bluetooth link shows up on a port the bridge holds open while Artisan is attached, in
-  general. It was seen once, in the [idle power-loss test](#idle-power-loss-test): the port
-  reported no error, and Artisan closed its virtual port after 5 s of silence before macOS
-  reported the link as lost. With nobody attached it was seen once, in hardware result 3: the port
+  general. It was seen twice, in the [idle power-loss test](#idle-power-loss-test) and its
+  repeat from source, both times by unplugging the roaster's power: the port reported no error,
+  and Artisan closed its virtual port after 5 s of silence before macOS reported the link as lost. With nobody attached it was seen once, in hardware result 3: the port
   reported no error, the bridge kept running, and the app showed "Waiting for Bluetooth"
 - the link staying up for hours with no Artisan attached. In the one case on record it ended 6.5
   minutes after the last traffic, and the logs do not show why

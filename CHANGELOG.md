@@ -7,14 +7,20 @@
   that Artisan's virtual port closed during a session; it cannot tell a crash from Artisan giving
   up after 5 seconds without a reply. The alert now adds whether the roaster had stopped answering
   before the port closed. What the bridge does in that case is unchanged: it closes the roaster's
-  port and stops. **Simulator-tested only; hardware verification is pending.**
+  port and stops. Tested with the simulator, and on hardware once, from source: commit `f1825c9`
+  run with `python -m kaleido_serial_bridge`, in an idle power-loss test on one M2 Lite with the
+  heater off. The tester saw the new alert with "5.0 s" and three unanswered commands, and the
+  logs confirm the stop and its reason. **No packaged or signed build of this change exists yet;
+  verification of one is pending.**
 - Recovery help: after the roaster has been switched on again, starting the bridge alone may not
   reconnect. In one idle power-loss test on an M2 Lite, a start of the bridge alone got no replies;
   a manual Bluetooth reset (restart of the Bluetooth service, then Bluetooth off and on) followed by
   a new start did. That is one attempt, not a rule. The app still does not reset Bluetooth or
   reconnect by itself.
-- docs/EVIDENCE.md records that idle power-loss test, made with the signed 0.2.0 build. That build
-  showed the old wording; the new alert and help texts have not yet been run on hardware.
+- docs/EVIDENCE.md records two idle power-loss tests: the first with the signed 0.2.0 build, which
+  showed the old wording, and a repeat from source at commit `f1825c9`, which showed the new one.
+  In both, a start of the bridge without a Bluetooth reset got no replies, and a start after the
+  manual reset connected.
 
 ## 0.2.0 — 2026-11-13
 
