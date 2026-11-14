@@ -23,6 +23,10 @@ Artisan  <-->  virtual port (~/.kaleido-bridge/cu.Roaster_bridge)  <-->  this ap
 - **There is no binary download.** The app can be built from source (see [Build](#build)). A
   public binary will only be released once Developer ID signing and notarization have been verified.
 
+## Menu bar
+
+![Kaleido Serial Bridge menu showing Receiving roaster replies](docs/menu-bar-screenshot.png)
+
 ## Background
 
 On the tested setup (Apple silicon MacBook Pro, macOS 27.2, Artisan 5.0.0, Kaleido M2 Lite over
