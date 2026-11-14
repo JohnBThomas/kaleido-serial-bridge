@@ -32,6 +32,8 @@ from kaleido_serial_bridge.controller import BridgeController, State  # noqa: E4
 from kaleido_serial_bridge.linkstate import CONNECTED, LinkMonitor  # noqa: E402
 from kaleido_serial_bridge.settings import Paths  # noqa: E402
 
+REAL_SHOW_IN_CURRENT_SPACE = ui.show_in_current_space  # before any test replaces it
+
 
 class Alerts:
     """Stands in for the user at every alert: records it and clicks the scripted button."""
@@ -65,6 +67,7 @@ def application() -> None:
 def quiet(monkeypatch: pytest.MonkeyPatch) -> dict[str, Any]:
     seen: dict[str, Any] = {'front': [], 'clipboard': None}
     monkeypatch.setattr(ui, 'bring_forward', lambda window: seen['front'].append(window.title()))
+    monkeypatch.setattr(ui, 'show_in_current_space', lambda window: seen['front'].append(window.title()))
     monkeypatch.setattr(ui, 'copy_text', lambda text: seen.__setitem__('clipboard', text))
     monkeypatch.setattr(app_module, 'copy_text', lambda text: seen.__setitem__('clipboard', text))
     monkeypatch.setattr(LinkMonitor, 'FAST', 0.03)
@@ -701,3 +704,48 @@ class TestGuidedRecovery:
         assert '"Reset Bluetooth & Restart Bridge"' in stops and 'one attempt per click' in stops
         assert 'does not work while the bridge is running' in stops
         assert 'The bridge does not reset Bluetooth, reopen the port or start again on its own.' in stops
+
+
+class TestTroubleshootingSpaces:
+    """Troubleshooting opens in the Space the user is in, also over a full-screen Artisan. Settings and the Setup Guide
+    keep their behavior. Whether macOS really does that is checked by hand; this checks what the app asks of it."""
+
+    def test_only_the_troubleshooting_window_moves_to_the_active_space(self, launch: Callable[[], Any]) -> None:
+        from AppKit import (  # pylint: disable=import-outside-toplevel
+            NSWindowCollectionBehaviorCanJoinAllSpaces,
+            NSWindowCollectionBehaviorFullScreenAuxiliary,
+            NSWindowCollectionBehaviorFullScreenPrimary,
+            NSWindowCollectionBehaviorMoveToActiveSpace,
+        )
+        delegate = launch()
+        help_window = ui.HelpWindow(delegate).window.collectionBehavior()
+        assert help_window & NSWindowCollectionBehaviorMoveToActiveSpace
+        assert help_window & NSWindowCollectionBehaviorFullScreenAuxiliary
+        # Apple: of the full-screen behaviors at most one per window; and not on all Spaces at once
+        assert not help_window & NSWindowCollectionBehaviorFullScreenPrimary and not help_window & NSWindowCollectionBehaviorCanJoinAllSpaces
+        for other in (ui.SettingsWindow(delegate).window, ui.SetupGuide(delegate).window):
+            behavior = other.collectionBehavior()
+            assert not behavior & NSWindowCollectionBehaviorMoveToActiveSpace
+            assert not behavior & NSWindowCollectionBehaviorFullScreenAuxiliary
+
+    def test_the_window_is_ordered_front_before_the_app_is_activated(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        calls: list[str] = []
+
+        class Window:
+            def makeKeyAndOrderFront_(self, _sender: Any) -> None:  # noqa: N802
+                calls.append('order front')
+
+        # undo the quiet fixture's stand-in, to run the real function with a recording window and activation
+        monkeypatch.setattr(ui, 'show_in_current_space', REAL_SHOW_IN_CURRENT_SPACE)
+        monkeypatch.setattr(ui, 'activate_app', lambda: calls.append('activate'))
+        ui.show_in_current_space(Window())
+        assert calls == ['order front', 'activate']
+
+    def test_troubleshooting_uses_it_and_the_other_windows_do_not(self, launch: Callable[[], Any], monkeypatch: pytest.MonkeyPatch) -> None:
+        used: list[str] = []
+        monkeypatch.setattr(ui, 'show_in_current_space', lambda window: used.append(f'here:{window.title()}'))
+        monkeypatch.setattr(ui, 'bring_forward', lambda window: used.append(f'forward:{window.title()}'))
+        delegate = launch()
+        delegate.show_help()
+        delegate.show_settings()
+        assert used[-2:] == ['here:Kaleido Serial Bridge Help', 'forward:Kaleido Serial Bridge Settings']

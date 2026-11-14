@@ -12,7 +12,10 @@
   ("Click ON in Artisan", with "If Artisan is still monitoring, click OFF, then ON. Otherwise,
   click ON.", then "Readings are back", or failures) is shown in that window; closing it leaves an
   attempt running. The recovery never activates the app or opens an alert after the
-  confirmation. The menu item for the Help window is now "Troubleshooting…".
+  confirmation. The menu item for the Help window is now "Troubleshooting…". That window now
+  asks macOS to open it in the Space the user is in, also over a full-screen Artisan, instead
+  of switching to the Space where it was last open (Settings and the Setup Guide are unchanged).
+  **Not yet verified on hardware.**
   After the restart of the Bluetooth service it waits until Bluetooth reports on before asking to
   turn it off, and repeats a power request without effect every 2 s within the step's limit (on
   hardware a request sent too early was rejected and two attempts failed). Every step, retry and

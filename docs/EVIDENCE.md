@@ -622,7 +622,8 @@ Still pending:
   Touch ID successfully in the administrator prompt, a guided recovery after a loss of power
   worked once, and the completion update left the tester in Artisan's Space. Open: the Help button
   of the connection-loss alert switched to the Space where the Help window was, not the one the
-  tester was in; see
+  tester was in. A change that asks macOS to open Troubleshooting in the active Space has been
+  made and is not yet verified on hardware; see
   [that run](#guided-recovery-after-a-loss-of-power-notarized-build-5bdc6388). With the earlier
   build `3195ebea…` two guided attempts failed at the power switch; see
   [that run](#guided-recovery-notarized-test-build-two-guided-failures-then-manual-recovery).

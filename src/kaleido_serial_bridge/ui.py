@@ -35,6 +35,8 @@ from AppKit import (
     NSUserInterfaceLayoutOrientationVertical,
     NSView,
     NSWindow,
+    NSWindowCollectionBehaviorFullScreenAuxiliary,
+    NSWindowCollectionBehaviorMoveToActiveSpace,
     NSWindowStyleMaskClosable,
     NSWindowStyleMaskMiniaturizable,
     NSWindowStyleMaskTitled,
@@ -147,6 +149,23 @@ def activate_app() -> None:
 def bring_forward(window: Any) -> None:
     activate_app()
     window.makeKeyAndOrderFront_(None)
+
+
+def show_in_current_space(window: Any) -> None:
+    """Like bring_forward, for a window that is to open in the Space the user is in (see stay_in_current_space): the
+    window is ordered front first, which moves it to the active Space, and only then is the app activated. Activating
+    first would let macOS switch to the Space where the window was before."""
+    window.makeKeyAndOrderFront_(None)
+    activate_app()
+
+
+def stay_in_current_space(window: Any) -> None:
+    """Moves the window to the active Space when it becomes active, instead of switching Spaces, and lets it show over
+    another app's full-screen window. Apple: moveToActiveSpace "When the window becomes active, move it to the active
+    space instead of switching spaces"; fullScreenAuxiliary "The window displays on the same space as the full screen
+    window". Of the full-screen behaviors (primary, auxiliary, canJoinAllApplications) at most one may be set."""
+    window.setCollectionBehavior_(window.collectionBehavior() | NSWindowCollectionBehaviorMoveToActiveSpace
+                                  | NSWindowCollectionBehaviorFullScreenAuxiliary)
 
 
 def copy_text(text: str) -> None:
@@ -479,6 +498,7 @@ class HelpWindow:
             scroll.heightAnchor().constraintGreaterThanOrEqualToConstant_(340.0),
         ])
         self.window = make_window(f'{APP_NAME} Help', content, 640.0)
+        stay_in_current_space(self.window)  # Troubleshooting only: it opens from alerts while the user is in Artisan
         self.update_recovery(None)
 
     def update_recovery(self, progress: Progress | None) -> None:
@@ -502,7 +522,7 @@ class HelpWindow:
             document.appendAttributedString_(NSAttributedString.alloc().initWithString_attributes_(topic.title + '\n\n', heading))
             document.appendAttributedString_(NSAttributedString.alloc().initWithString_attributes_(topic.body + '\n\n\n', body))
         self.text.textStorage().setAttributedString_(document)
-        bring_forward(self.window)
+        show_in_current_space(self.window)
 
 
 def recovery_view(progress: Progress | None) -> tuple[str, str, bool]:

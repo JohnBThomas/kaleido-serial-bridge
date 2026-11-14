@@ -293,6 +293,8 @@ the menu): "Bluetooth service restarted", "Bluetooth power cycle completed", "br
 After the confirmation, everything the recovery has to say appears in the Help window. It does not
 open alerts, make the app active or bring the window forward, so you can switch to Artisan, in
 another Space too, and click OFF and ON or ON there. macOS's own password dialog is separate.
+Troubleshooting itself is meant to open in the Space you are in, also over a full-screen Artisan;
+that has not been verified on hardware yet.
 
 Turning Bluetooth off and on uses a function of macOS's IOBluetooth framework that Apple does not
 document (the one `blueutil` uses). If it is missing or has no effect, that step fails and the
@@ -354,7 +356,7 @@ Nothing else is installed.
 ## For developers
 
 ```
-python -m pytest                              # 113 tests against a simulated roaster, about 40 s
+python -m pytest                              # 116 tests against a simulated roaster, about 40 s
 ruff check . && mypy && codespell
 packaging/build.sh
 python tests/packaged_app_check.py "$TMPDIR/kaleido-serial-bridge-build/dist/Kaleido Serial Bridge.app"
