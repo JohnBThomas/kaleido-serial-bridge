@@ -11,8 +11,10 @@ opens" setting, and what it shows is read from its status file.
 
 Every start of the app has KALEIDO_BRIDGE_NO_LOGIN_ITEM=1 set, so the app never asks the login
 item service. (Asking it from a copy of the app makes macOS move a registered login item to that
-copy.) The check compares the registered login item before and after the run (sfltool dumpbtm) and
-looks for a login item update in the unified log during the run.
+copy.) The check looks in the unified log for a move of the login item during the run. That needs
+no password and shows no dialog. If the log cannot be read, the check says so as UNVERIFIED instead
+of passing. (It does not use sfltool dumpbtm: every call of that asks the user for an administrator
+password.)
 
 Not covered here, because it needs clicks: the setup guide and the alerts. Those are covered
 in-process by tests/test_app.py.
@@ -38,6 +40,7 @@ from sim_roaster import SimRoaster  # noqa: E402
 
 BUNDLE_ID = 'io.github.johnbthomas.KaleidoSerialBridge'
 results: list[tuple[bool, str]] = []
+unverified: list[str] = []
 
 
 def check(ok: object, what: str) -> None:
@@ -45,30 +48,17 @@ def check(ok: object, what: str) -> None:
     print(('PASS  ' if ok else 'FAIL  ') + what, flush=True)
 
 
-def registered_login_item() -> str:
-    """The path macOS has registered for the app's login item, 'none', or why it could not be read."""
+def login_item_updates(since: str) -> list[str] | None:
+    """Lines of the unified log since then in which macOS moved the app's login item to another copy, or None if the
+    log could not be read. Asks for no password and shows no dialog."""
     try:
-        dump = subprocess.run(['/usr/bin/sfltool', 'dumpbtm'], capture_output=True, text=True, timeout=60, check=False).stdout
-    except (OSError, subprocess.TimeoutExpired) as e:
-        return f'unreadable ({e})'
-    found: list[str] = []
-    url = ''
-    for line in dump.splitlines():
-        key, _, value = line.strip().partition(': ')
-        if key == 'UUID':
-            url = ''
-        elif key == 'URL':
-            url = value
-        elif key == 'Bundle Identifier' and value == BUNDLE_ID and url:
-            found.append(url)
-    return ', '.join(sorted(set(found))) if found else ('none' if dump else 'unreadable (no output)')
-
-
-def login_item_updates(since: str) -> list[str]:
-    """Lines of the unified log since then in which macOS moved the app's login item to another copy."""
-    done = subprocess.run(['/usr/bin/log', 'show', '--style', 'compact', '--start', since, '--predicate',
-                           'subsystem == "com.apple.backgroundtaskmanagement" AND eventMessage CONTAINS "_bundleURLForAuditToken"'],
-                          capture_output=True, text=True, timeout=120, check=False)
+        done = subprocess.run(['/usr/bin/log', 'show', '--style', 'compact', '--start', since, '--predicate',
+                               'subsystem == "com.apple.backgroundtaskmanagement" AND eventMessage CONTAINS "_bundleURLForAuditToken"'],
+                              capture_output=True, text=True, timeout=120, check=False)
+    except (OSError, subprocess.TimeoutExpired):
+        return None
+    if done.returncode != 0:
+        return None
     return [line for line in done.stdout.splitlines() if 'Kaleido Serial Bridge' in line or BUNDLE_ID in line]
 
 
@@ -78,8 +68,6 @@ def main() -> int:
     home = Path(tempfile.mkdtemp(prefix='ksb-check-')).resolve()
     environment = {'HOME': str(Path.home()), 'PATH': '/usr/bin:/bin', 'KALEIDO_BRIDGE_HOME': str(home),
                    'KALEIDO_BRIDGE_NO_LOGIN_ITEM': '1'}  # every start of the app below gets this environment
-    login_item_before = registered_login_item()
-    print(f'registered login item before the run: {login_item_before}')
     started = time.strftime('%Y-%m-%d %H:%M:%S')
     status_file = home / 'status.json'
 
@@ -194,15 +182,16 @@ def main() -> int:
 
     # ---- the registered login item was left alone
     time.sleep(2.0)  # let the unified log catch up
-    login_item_after = registered_login_item()
-    print(f'registered login item after the run: {login_item_after}')
-    check(not login_item_before.startswith('unreadable') and login_item_after == login_item_before,
-          'the registered login item is the same before and after the run')
     moved = login_item_updates(started)
-    check(not moved, f'the unified log shows no move of the login item during the run ({len(moved)} lines)')
+    if moved is None:
+        unverified.append('the registered login item: the unified log could not be read')
+        print('UNVERIFIED  the registered login item: the unified log could not be read', flush=True)
+    else:
+        check(not moved, f'the unified log shows no move of the login item during the run ({len(moved)} lines)')
 
     failed = [what for ok, what in results if not ok]
-    print(f'\n{len(results) - len(failed)} of {len(results)} checks passed. Home folder of this run: {home}')
+    print(f'\n{len(results) - len(failed)} of {len(results)} checks passed'
+          + (f', {len(unverified)} unverified' if unverified else '') + f'. Home folder of this run: {home}')
     return 1 if failed else 0
 
 

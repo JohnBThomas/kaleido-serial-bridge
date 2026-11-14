@@ -149,10 +149,11 @@ has the CDHash `a9a59f259cc3528af70e43abbed537cb544186b0`.
   2026-11-13. `packaging/build.sh` and `tests/packaged_app_check.py` therefore start the built app
   with `KALEIDO_BRIDGE_NO_LOGIN_ITEM=1` (for tests only): the self-test reports "not queried", the
   Settings checkbox is disabled, changes to the registration are refused, and the service is never
-  asked. The packaged check compares the registered item before and after its run
-  (`sfltool dumpbtm`) and looks for a move in the unified log. A copy started by hand without the
-  variable still moves the item if its Settings window is opened or `--selftest` is run. To see
-  where the item points:
+  asked. The packaged check looks in the unified log for a move of the item during its run; that
+  needs no password. If the log cannot be read, it reports the check as UNVERIFIED. Do not use
+  `sfltool dumpbtm` for this: it needs no `sudo`, but every call shows an administrator
+  authorization dialog. A copy started by hand without the variable still moves the item if its
+  Settings window is opened or `--selftest` is run. To see where the item points:
 
   ```
   /usr/bin/log show --last 1d --style compact --predicate 'process == "backgroundtaskmanagementd" AND eventMessage CONTAINS "updating item" AND eventMessage CONTAINS "Kaleido"' | tail -1
