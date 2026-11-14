@@ -316,7 +316,7 @@ Nothing else is installed.
 ## For developers
 
 ```
-python -m pytest                              # 74 tests against a simulated roaster, about 30 s
+python -m pytest                              # 79 tests against a simulated roaster, about 30 s
 ruff check . && mypy && codespell
 packaging/build.sh
 python tests/packaged_app_check.py "$TMPDIR/kaleido-serial-bridge-build/dist/Kaleido Serial Bridge.app"

@@ -26,7 +26,7 @@ from test_controller import Artisan, Link, wait_for  # noqa: E402
 
 from kaleido_serial_bridge import app as app_module  # noqa: E402
 from kaleido_serial_bridge import controller as controller_module  # noqa: E402
-from kaleido_serial_bridge import guide, ui  # noqa: E402
+from kaleido_serial_bridge import guide, loginitem, ui  # noqa: E402
 from kaleido_serial_bridge.app import AppDelegate  # noqa: E402
 from kaleido_serial_bridge.controller import BridgeController, State  # noqa: E402
 from kaleido_serial_bridge.linkstate import CONNECTED, LinkMonitor  # noqa: E402
@@ -391,3 +391,93 @@ class TestFailureAlerts:
         back = topics['Back to direct Bluetooth']
         assert 'artisan-direct.aset' in back and '/dev/cu.Roaster_SRSv6' in back and guide.ARTISAN_PORT_MENU in back
         assert 'has not been verified' in topics['What the bridge does and does not do']
+
+
+class ServiceSpy:
+    """Stands in for loginitem._service and records every call. With the opt-out set it must never be called."""
+
+    def __init__(self, status: int = 1) -> None:
+        self.calls = 0
+        self.status_value = status
+        self.registered: list[bool] = []
+
+    def __call__(self) -> Any:
+        self.calls += 1
+        return self
+
+    def status(self) -> int:
+        return self.status_value
+
+    def registerAndReturnError_(self, _error: Any) -> tuple[bool, Any]:  # noqa: N802
+        self.registered.append(True)
+        return True, None
+
+    def unregisterAndReturnError_(self, _error: Any) -> tuple[bool, Any]:  # noqa: N802
+        self.registered.append(False)
+        return True, None
+
+
+class TestLoginItemOptOut:
+    """KALEIDO_BRIDGE_NO_LOGIN_ITEM=1 keeps checks of a built app away from the login item service of macOS."""
+
+    @pytest.fixture
+    def service(self, monkeypatch: pytest.MonkeyPatch) -> ServiceSpy:
+        spy = ServiceSpy()
+        monkeypatch.setattr(sys, 'frozen', True, raising=False)  # as in the built app, where the service would be asked
+        monkeypatch.setattr(loginitem, '_service', spy)
+        return spy
+
+    def test_with_the_opt_out_nothing_asks_the_service(self, monkeypatch: pytest.MonkeyPatch, service: ServiceSpy) -> None:
+        monkeypatch.setenv(loginitem.OPT_OUT_VARIABLE, '1')
+        assert not loginitem.available()
+        assert loginitem.state() == loginitem.NOT_QUERIED == 'not queried (KALEIDO_BRIDGE_NO_LOGIN_ITEM=1)'
+        assert not loginitem.is_enabled()
+        for enabled in (True, False):
+            done, problem = loginitem.set_enabled(enabled)
+            assert not done and 'KALEIDO_BRIDGE_NO_LOGIN_ITEM=1' in problem
+        assert service.calls == 0 and service.registered == []
+
+    def test_with_the_opt_out_the_self_test_reports_not_queried(self, monkeypatch: pytest.MonkeyPatch, service: ServiceSpy,
+                                                               capsys: pytest.CaptureFixture[str]) -> None:
+        from kaleido_serial_bridge import __main__ as entry  # pylint: disable=import-outside-toplevel
+        monkeypatch.setenv(loginitem.OPT_OUT_VARIABLE, '1')
+        assert entry.selftest() == 0
+        assert 'login item service: not queried (KALEIDO_BRIDGE_NO_LOGIN_ITEM=1)' in capsys.readouterr().out
+        assert service.calls == 0
+
+    def test_with_the_opt_out_settings_disable_the_checkbox_and_refuse_changes(self, monkeypatch: pytest.MonkeyPatch, service: ServiceSpy,
+                                                                               launch: Callable[[], Any]) -> None:
+        monkeypatch.setenv(loginitem.OPT_OUT_VARIABLE, '1')
+        delegate = launch()
+        settings = ui.SettingsWindow(delegate)
+        settings.reload()
+        assert not bool(settings.login.isEnabled())
+        assert 'not queried' in str(settings.login_note.stringValue())
+        settings.login.setState_(1)
+        settings.toggle_login(settings.login)  # as if the checkbox had been clicked anyway
+        message, text, _, _ = delegate.ask.shown[-1]
+        assert message == 'Login item not changed' and 'KALEIDO_BRIDGE_NO_LOGIN_ITEM=1' in text
+        assert service.calls == 0 and service.registered == []
+
+    def test_with_the_opt_out_rendering_the_windows_does_not_ask_the_service(self, monkeypatch: pytest.MonkeyPatch, service: ServiceSpy,
+                                                                             tmp_path: Path) -> None:
+        monkeypatch.setenv(loginitem.OPT_OUT_VARIABLE, '1')
+        monkeypatch.setenv('KALEIDO_BRIDGE_HOME', str(tmp_path / 'home'))  # not the real settings
+        written = app_module.render_screens(str(tmp_path / 'screens'))
+        assert any(path.endswith('settings.png') for path in written)
+        assert service.calls == 0
+
+    def test_without_the_opt_out_the_service_is_asked_as_before(self, monkeypatch: pytest.MonkeyPatch, service: ServiceSpy,
+                                                                launch: Callable[[], Any]) -> None:
+        monkeypatch.delenv(loginitem.OPT_OUT_VARIABLE, raising=False)
+        assert loginitem.available() and loginitem.state() == 'on' and loginitem.is_enabled()
+        monkeypatch.setenv(loginitem.OPT_OUT_VARIABLE, '0')  # only "1" opts out
+        assert loginitem.available()
+        monkeypatch.delenv(loginitem.OPT_OUT_VARIABLE)
+        delegate = launch()
+        settings = ui.SettingsWindow(delegate)
+        settings.reload()
+        assert bool(settings.login.isEnabled()) and int(settings.login.state()) == 1
+        settings.login.setState_(0)
+        settings.toggle_login(settings.login)
+        assert service.registered == [False] and service.calls > 0

@@ -134,10 +134,15 @@ has the CDHash `a9a59f259cc3528af70e43abbed537cb544186b0`.
   been shown to work.
 - **Login item.** "Open the app at login" uses `SMAppService`. macOS ties the item to the signed
   app; test it with the signed build in `/Applications`.
-- **The self-test moves the login item.** `packaging/build.sh` and `tests/packaged_app_check.py`
-  run the built app's self-test, which asks macOS for the state of the login item. While "Open the
-  app at login" is on for an installed copy, macOS was seen to move that login item to the copy
-  that asked, twice on 2026-11-13. After a build, check where it points:
+- **Copies of the app and the login item.** Asking macOS for the state of the login item from a
+  copy of the app makes macOS move a registered login item to that copy; it was seen twice on
+  2026-11-13. `packaging/build.sh` and `tests/packaged_app_check.py` therefore start the built app
+  with `KALEIDO_BRIDGE_NO_LOGIN_ITEM=1` (for tests only): the self-test reports "not queried", the
+  Settings checkbox is disabled, changes to the registration are refused, and the service is never
+  asked. The packaged check compares the registered item before and after its run
+  (`sfltool dumpbtm`) and looks for a move in the unified log. A copy started by hand without the
+  variable still moves the item if its Settings window is opened or `--selftest` is run. To see
+  where the item points:
 
   ```
   /usr/bin/log show --last 1d --style compact --predicate 'process == "backgroundtaskmanagementd" AND eventMessage CONTAINS "updating item" AND eventMessage CONTAINS "Kaleido"' | tail -1

@@ -401,7 +401,8 @@ class SettingsWindow:
             self.login_note.setStringValue_('Listed in System Settings » General » Login Items. This opens the app; it starts the bridge only if the option above is on.')
         else:
             self.login.setEnabled_(False)
-            self.login_note.setStringValue_('Available when running as the installed app.')
+            self.login_note.setStringValue_(f'Not available: {loginitem.NOT_QUERIED}.' if loginitem.opted_out()
+                                            else 'Available when running as the installed app.')
         self.update(self.controller.status())
 
     def update(self, status: Status) -> None:

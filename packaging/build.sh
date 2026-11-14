@@ -36,7 +36,9 @@ codesign --verify --deep --strict "$APP"
 codesign -dv "$APP" 2>&1 | grep -E "^(Identifier|Signature|TeamIdentifier|Authority)" || true
 
 echo "== self-test of the built app"
-env -i HOME="$HOME" PATH=/usr/bin:/bin "$APP/Contents/MacOS/KaleidoSerialBridge" --selftest
+# KALEIDO_BRIDGE_NO_LOGIN_ITEM=1: the self-test must not ask the login item service. Asking it from this
+# copy would make macOS move a registered login item of an installed copy here.
+env -i HOME="$HOME" PATH=/usr/bin:/bin KALEIDO_BRIDGE_NO_LOGIN_ITEM=1 "$APP/Contents/MacOS/KaleidoSerialBridge" --selftest
 
 echo "== disk image"
 STAGE="$BUILD_DIR/dmg"
