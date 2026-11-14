@@ -14,16 +14,18 @@ same day when this policy was settled. What was and was not checked for it is li
 ## Local test build
 
 ```
-PYTHON=~/.venvs/kaleido-serial-bridge/bin/python packaging/build.sh
+OUTPUT_DMG=dist/KaleidoSerialBridge-<version>-<commit>-adhoc-test-arm64.dmg \
+    PYTHON=~/.venvs/kaleido-serial-bridge/bin/python packaging/build.sh
 ```
 
-writes `dist/KaleidoSerialBridge-<version>-arm64.dmg`. The app is built with PyInstaller and
+writes the disk image under that name. Without `OUTPUT_DMG` it writes
+`dist/KaleidoSerialBridge-<version>-arm64.dmg`, the release name. Either way the build stops
+before it starts if the file exists already, so an existing image is never replaced. The app is built with PyInstaller and
 contains its own Python, pyserial and PyObjC; it needs nothing on the target Mac. Without a signing
 identity it is signed ad hoc: it runs on the Mac it was built on, and on other Macs only after the
 user allows it in **System Settings » Privacy & Security » Open Anyway**. Such a build is for your
-own testing and is not published. Before keeping a local test image, give it a name that says what
-it is, for example `KaleidoSerialBridge-<version>-arm64-adhoc-local-test.dmg`: a release build
-writes to the same path and would replace it.
+own testing and is not published. Give a local test image a name that says what it is, with
+`OUTPUT_DMG` as above, so that it is not confused with a release image.
 
 Check a build with
 
