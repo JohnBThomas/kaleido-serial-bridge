@@ -67,10 +67,9 @@ notarized by Apple. The app in it has the CDHash `a9a59f259cc3528af70e43abbed537
 - Gatekeeper accepted the notarized disk image, and a quarantined copy of the app, on the Mac that
   built them. The notarization ticket is stapled to the disk image.
 - On one Kaleido M2 Lite, idle, with the heater off, on the build Mac: the app opened at login,
-  the bridge started by itself, live readings arrived, and they returned after **OFF → ON**
-  through one open of the physical port. The logs confirm each of these.
-- Pending: **⌘Q → relaunch → ON** with this build. The tester reports that readings returned; the
-  logs show the quit but no relaunch.
+  the bridge started by itself, live readings arrived, and they returned after **OFF → ON** and
+  after **⌘Q → relaunch → ON**, through one open of the physical port. The tester saw the readings
+  each time, and the logs confirm each of these.
 - Not tested: installation on a second Mac, and a first launch without a network connection.
 
 **On hardware** — one Kaleido M2 Lite, one Apple silicon MacBook Pro, macOS 27.2, Artisan 5.0.0,

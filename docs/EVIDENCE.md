@@ -290,22 +290,28 @@ this build and no other. As before, what the tester reported and what the logs s
 | 22:08:39 | Artisan log, app log | **OFF**. Session 1 detaches, clean, after 119.7 s: 84 commands delivered to the roaster, 4,617 bytes of replies passed on to Artisan |
 | 22:08:43 | Artisan log, app log | **ON**, 4 seconds later. Session 2 attaches: "real port open for 167 s, opened once, never reopened" |
 | 22:08:53 | Artisan log, app log | **⌘Q**: `MODE: QUIT` while monitoring is on. Session 2 detaches, "clean (Artisan ended its session with CL AR)", after 9.7 s: 11 commands, 456 bytes of replies; "real port stays open" |
-| up to 22:15 | Artisan log, app log, macOS log | no further start of Artisan and no third session. The bridge is still running, and macOS still lists the roaster as connected |
+| 22:08:53 – 22:20:42 | Artisan log, app log, macOS log | Artisan is not running. The bridge keeps running with the port open; no data passes in either direction, and macOS logs no disconnect |
+| 22:20:42 | Artisan log | Artisan starts again, serial port = the virtual port |
+| 22:20:46 | Artisan log, app log | **ON**. Session 3 attaches: "real port open for 890 s, opened once, never reopened" |
+| 22:20:46 onward | macOS Bluetooth log, app status | replies arrive again: 606 bytes from the roaster in the first 15 seconds, and none between the quit and this ON. The app shows "Receiving roaster replies" |
 
 | Check | Reported by the tester | Confirmed by the logs |
 |---|---|---|
 | The app opening at login | not reported | **Yes.** Launched by the login window from the login items at 22:05:55 |
 | The bridge starting by itself | not reported | **Yes.** The start follows the app's launch by 43 ms, with no menu command in between |
-| Bluetooth connection for that open of the port | not something the tester can see directly | **Yes.** One RFCOMM connection, successful 1.2 s after the open, and no disconnect up to 22:15 |
+| Bluetooth connection for that open of the port | not something the tester can see directly | **Yes.** One RFCOMM connection, successful 1.2 s after the open, and no disconnect up to 22:21 |
 | First live readings | Artisan showed live ET and BT | **Yes.** 4,617 bytes of replies in session 1 |
 | OFF → ON | readings returned | **Yes.** OFF and ON in Artisan's log, 4 s apart; session 2 on the same open port, with 456 bytes of replies |
-| ⌘Q → relaunch → ON | readings returned | **Not confirmed.** The quit and a clean detach are logged. No relaunch of Artisan and no session after it are on record |
-| The physical port throughout | the bridge stayed running | **Yes.** The app log has one "real port … opened" line and "opened once, never reopened" at session 2 |
+| ⌘Q → relaunch → ON | live ET and BT returned after quitting with ⌘Q, relaunching and clicking ON, with the bridge left running | **Yes.** `MODE: QUIT` at 22:08:53, a new start of Artisan at 22:20:42 and ON at 22:20:46 in Artisan's log; session 3 on the same open port, with replies in the macOS log. The relaunch came 12 minutes after the quit |
+| The physical port throughout | the bridge stayed running | **Yes.** The app log has one "real port … opened" line, at 22:05:56.728, and "opened once, never reopened" at sessions 2 and 3. The macOS log has one RFCOMM connection and no disconnect |
 
 **Results, for the signed build only, on one M2 Lite, idle, with the heater off: the app opened at
 login, the bridge started by itself, macOS connected the roaster for that open, the first readings
-arrived, and OFF → ON returned replies through the same open of the physical port. ⌘Q → relaunch →
-ON was reported by the tester and is not confirmed by the logs; it stays pending.**
+arrived, and both OFF → ON and ⌘Q → relaunch → ON returned replies through the same open of the
+physical port. The tester observed the readings each time, and the logs confirm each result.**
+
+Session 3 was still attached when this was written, at 22:21, so the app log has no totals for it
+yet. An earlier check, at 22:15, had found no relaunch on record; the relaunch followed at 22:20.
 
 An earlier start of this build, at 22:02:54 and before the restart, is not part of the result. The
 app started the bridge by itself when it was opened after installation, two minutes after the ad
@@ -319,7 +325,6 @@ were short: two minutes and ten seconds.
 
 - installation on a second Mac
 - a first launch without a network connection
-- ⌘Q → relaunch → ON, as far as the logs go
 - anything with the heater on, and any roaster other than this one M2 Lite
 
 ## Simulator results
@@ -349,13 +354,12 @@ Hardware results exist for three packaged builds, two local ad hoc builds and th
   first connection after a start, **OFF → ON**, **⌘Q → relaunch → ON**, and the app opening at
   login.
 - `a9a59f259cc3528af70e43abbed537cb544186b0`, the signed build of the 0.2.0 pre-release: the app opening at
-  login, the bridge starting by itself, the first readings, and **OFF → ON**. See
+  login, the bridge starting by itself, the first readings, **OFF → ON** and
+  **⌘Q → relaunch → ON**. See
   [The signed build](#the-signed-build).
 
 Still pending:
 
-- ⌘Q → relaunch → ON with the signed build. The quit is logged; a relaunch and a session after it
-  are not.
 - The bridge starting by itself with the ad hoc build `7630086f…`: reported, but the logs of that
   run show a start from the menu. It is confirmed for the signed build, and with the simulator.
 
