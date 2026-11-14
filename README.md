@@ -27,7 +27,7 @@ Artisan  <-->  virtual port (~/.kaleido-bridge/cu.Roaster_bridge)  <-->  this ap
 
 ## Menu bar
 
-![Kaleido Serial Bridge menu showing Receiving roaster replies](docs/menu-bar-screenshot.png)
+![Kaleido Serial Bridge menu showing Receiving roaster replies](docs/menu-bar-v0.2.1.png)
 
 ## Install
 
