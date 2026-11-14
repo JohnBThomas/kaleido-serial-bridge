@@ -22,8 +22,11 @@
   guided recovery after a loss of power on the M2 Lite, idle, heater off, worked; the logs confirm
   the service restart, the power cycle, one open of the roaster's port and replies. An earlier
   notarized build (`3195ebea…`) failed twice at the power switch, which led to the readiness fix.
-  **Pending:** whether the administrator prompt offers Touch ID and it can be used, and whether
-  focus stays in Artisan's Space.
+  With that build the tester saw and used Touch ID successfully in the administrator prompt. The
+  macOS log corroborates that the prompt was eligible for Touch ID and that the authorization
+  succeeded; it does not identify which credential completed it. On this Mac, the earlier ad hoc
+  test build (`1640c79e…`) got a password-only prompt, and macOS logged "biometry prohibited" for
+  it. **Pending:** whether focus stays in Artisan's Space.
 - The alert for a session that ends without `CL AR` now reads "Connection lost during an active
   session. The bridge stopped." instead of "Artisan vanished mid-session". The bridge sees only
   that Artisan's virtual port closed during a session; it cannot tell a crash from Artisan giving

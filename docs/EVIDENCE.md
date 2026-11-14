@@ -593,7 +593,7 @@ confirm each part of it.
 | Bluetooth switched off and on again | not something the tester can see | **Yes.** Off at 01:44:42.572 and on at 01:44:46.313, each right after the app's first request; no request was rejected and none was repeated |
 | The bridge opened the physical port once after the reset | not something the tester can see | **Yes.** One "real port … opened" line between the reset and the stop, at 01:44:53.048; "opened once, never reopened" at the attach and at the close. One RFCOMM connection, from 01:44:53.607 until the close |
 | Roaster replies resumed | not reported separately | **Yes.** 549 bytes in the first 15 seconds after ON, and 4,446 bytes in the session |
-| Touch ID offered and used in the administrator prompt | not reported | **Not confirmed.** SecurityAgent marked both prompts as eligible for Touch ID ("biometry prohibited 0"). Whether it was offered or used is not in the log |
+| Touch ID offered and used in the administrator prompt | the tester saw Touch ID in the administrator prompt and used it successfully to authorize the Bluetooth reset (direct observation) | **Corroborated, not identified.** SecurityAgent marked both prompts as eligible for Touch ID ("AEWP notarized 1, biometry prohibited 0"), `coreauthd` started a Touch ID match for each when the dialog appeared (01:42:41.407, 01:44:37.972), and both authorizations succeeded. The log does not identify which credential completed them |
 | Focus in Artisan's Space | not reported | **Not confirmed.** Left for the tester's observation |
 
 What this run does not show:
@@ -618,9 +618,9 @@ Hardware results exist for three packaged builds, two local ad hoc builds and th
 
 Still pending:
 
-- The guided Bluetooth recovery on hardware: Touch ID offered and usable in the administrator
-  prompt, and focus staying in Artisan's Space, both await the tester's observation. A guided
-  recovery after a loss of power worked once with the notarized build `5bdc6388…`; see
+- The guided Bluetooth recovery on hardware: focus staying in Artisan's Space awaits the tester's
+  observation. With the notarized build `5bdc6388…` the tester saw and used Touch ID successfully
+  in the administrator prompt, and a guided recovery after a loss of power worked once; see
   [that run](#guided-recovery-after-a-loss-of-power-notarized-build-5bdc6388). With the earlier
   build `3195ebea…` two guided attempts failed at the power switch; see
   [that run](#guided-recovery-notarized-test-build-two-guided-failures-then-manual-recovery).
