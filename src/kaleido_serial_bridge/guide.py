@@ -129,8 +129,7 @@ RECOVERY_CONFIRM = (
     '2.  turn Bluetooth off, and on again two seconds later\n'
     "3.  wait for the roaster's serial port, then start the bridge once\n\n"
     'Every Bluetooth device of this Mac disconnects for a few seconds: keyboards, mice, trackpads and headphones '
-    'included. They usually reconnect by themselves.\n\n'
-    'This sequence restored readings in the idle power-loss tests on one M2 Lite. It is not a guarantee.')
+    'included. They usually reconnect by themselves.')
 
 RECOVERY_WORKING = 'Resetting Bluetooth…'
 RECOVERY_CLICK_ON = 'Click ON in Artisan'

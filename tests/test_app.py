@@ -572,6 +572,9 @@ class TestGuidedRecovery:
         assert message == 'Reset Bluetooth and restart the bridge?' and buttons == ['Cancel', 'Reset Bluetooth']
         assert 'switched on again, idle' in text and 'heater is off' in text
         assert 'administrator password' in text and 'keyboards, mice' in text
+        # what the reset does, what to check on the roaster, the interruption: no test history (that is in docs/EVIDENCE.md)
+        assert 'power-loss tests' not in text and 'guarantee' not in text and 'M2 Lite' not in text
+        assert text.endswith('They usually reconnect by themselves.')
         for _ in range(5):
             delegate.tick_(None)
         assert system.calls == [] and not delegate.controller.running()
