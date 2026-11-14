@@ -10,7 +10,9 @@
   Every wait has a limit; a cancelled authorization or a failed step stops the attempt, names the
   step and shows the manual steps. It refuses to run while the bridge is running; the stop after a
   connection loss is unchanged. The power switch uses an undocumented IOBluetooth function.
-  **Tested with a simulated macOS only; not yet run on hardware or in a signed build.**
+  The simulator tests and the packaged checks passed (test build app CDHash
+  `1640c79eab7c23259790e6a65d27cfbdd95110de`). **Pending on hardware:** the administrator prompt,
+  the Bluetooth reset and a recovery on the M2 Lite. **Untested:** the hardened runtime.
 - The alert for a session that ends without `CL AR` now reads "Connection lost during an active
   session. The bridge stopped." instead of "Artisan vanished mid-session". The bridge sees only
   that Artisan's virtual port closed during a session; it cannot tell a crash from Artisan giving

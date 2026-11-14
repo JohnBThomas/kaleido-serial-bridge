@@ -472,6 +472,29 @@ and whether a port is open on it.
 What the simulator cannot show: anything about macOS Bluetooth, the real roaster's firmware, or
 timing on a real link.
 
+### Guided Bluetooth recovery: checks without hardware
+
+The Help window's **Reset Bluetooth & Restart Bridge**, as in commit
+`0f2f02a6cb99468b4183130b863f766640dbf214`. Its local test build is the disk image
+`KaleidoSerialBridge-0.2.0-guided-recovery-b5db64379547-adhoc-test-arm64.dmg` (SHA-256
+`fcda040c2fccfdd68109f4268ae1019e5796067e130e3ed13bcfb462328d23f1`), with the app's code
+directory hash `1640c79eab7c23259790e6a65d27cfbdd95110de`, signed ad hoc, version 0.2.0. It was
+built from exactly the tree of that commit: the diff against `661dd2f` was compared byte for byte
+before the commit, and the compiled modules in the app match the source.
+
+| Check | Result |
+|---|---|
+| `tests/test_recovery.py`: the recovery against a simulated macOS and the simulated roaster: success; a cancelled authorization; a failed restart; the Bluetooth service, the power off, the power on and the serial port each not coming back in time; the power switch unavailable; no replies in time; a running bridge; one attempt at a time; nothing without a click | 15 passed |
+| `tests/test_app.py`, the recovery part: after a real connection-loss stop, the Help button, the confirmation and its texts, cancel, success with real replies, a cancelled authorization and a missing port named in the alert with the manual steps, a running bridge refused | 6 passed (26 in the file) |
+| The whole test suite | 99 passed, 1 skipped (it needs Artisan's source; run with it, it passed) |
+| `tests/packaged_app_check.py` on a copy of the app taken out of that disk image, with `KALEIDO_BRIDGE_NO_LOGIN_ITEM=1` | 26 of 26, among them: the bundled app finds the two IOBluetooth power functions and `NSAppleScript` (looked up, not called), and the registered login item is the same before and after |
+
+**Pending on hardware:** the restart of the Bluetooth service through the administrator prompt,
+the real switching of Bluetooth off and on, whether macOS asks for Bluetooth permission, and a
+recovery after a loss of power on the M2 Lite. None of these has been run. **Untested:** the
+recovery in a build with the hardened runtime (a signed build), including the
+`com.apple.security.device.bluetooth` entitlement and `NSAppleScript` under it.
+
 ## Pending
 
 Hardware results exist for three packaged builds, two local ad hoc builds and the signed build:
@@ -487,6 +510,9 @@ Hardware results exist for three packaged builds, two local ad hoc builds and th
 
 Still pending:
 
+- The guided Bluetooth recovery on hardware, with the test build `1640c79e…`: the administrator
+  prompt, the Bluetooth reset and a recovery on the M2 Lite. Under the hardened runtime it is
+  untested. See [the checks without hardware](#guided-bluetooth-recovery-checks-without-hardware).
 - The new alert wording ("Connection lost during an active session. The bridge stopped.") in a
   packaged build. It has been run on hardware only from source, at commit `f1825c9`, in one idle
   power-loss test; see [that section](#idle-power-loss-test-with-source-commit-f1825c9).
