@@ -68,9 +68,10 @@ def help_topics(device: str) -> list[Topic]:
               'opens after a reset. Waiting did not help there, and neither did clicking ON again.\n\n'
               '1.  In Artisan, click OFF.\n'
               '2.  Stop the bridge.\n'
-              '3.  Reset Bluetooth yourself. Restarting the Mac is the reset that helped on the tested setup, but not every '
-              'time: one first start after a restart still did not connect. Restarting the Bluetooth service in Terminal with '
-              '"sudo pkill -x bluetoothd", or turning Bluetooth off and on, did not get the bridge connected there.\n'
+              '3.  Reset Bluetooth yourself. Restarting the Mac is the reset that helped most often on the tested setup, but '
+              'not every time: one first start after a restart still did not connect. Restarting the Bluetooth service in '
+              'Terminal with "sudo pkill -x bluetoothd", or turning Bluetooth off and on, each on its own, did not get the '
+              'bridge connected there. Doing both, one after the other, did once: see "When the bridge stops by itself".\n'
               '4.  Start the bridge and wait for "Waiting for Artisan". If the menu stays at "Waiting for Bluetooth" for more '
               'than a minute, stop the bridge and restart the Mac once more.\n'
               '5.  In Artisan, click ON.\n\n'
@@ -84,12 +85,25 @@ def help_topics(device: str) -> list[Topic]:
               'Because the port was just closed, macOS may again fail to connect on this next open. '
               'If Artisan shows no readings, reset Bluetooth as described above.'),
         Topic('When the bridge stops by itself',
-              'Artisan vanished mid-session: Artisan crashed or was force quit while it was connected. It could not tell the '
-              'roaster that it was leaving, so the bridge closed the port; the roaster sees the link drop exactly as it would '
-              'without a bridge. Check the roaster, then reset Bluetooth and start the bridge again.\n\n'
+              'Connection lost during an active session: Artisan\'s virtual port closed while Artisan had a session open at '
+              'the roaster, without the command that ends it (CL AR). The bridge cannot tell why. Artisan crashing or being '
+              'force quit looks like this. So does Artisan giving up by itself after about 5 seconds without a reply, for '
+              'example because the roaster lost power or its Bluetooth link; Artisan then stays open. The alert says whether '
+              'the roaster had stopped answering before the port closed. Either way the bridge closed the roaster\'s port, so '
+              'the roaster sees the link drop exactly as it would without a bridge.\n\n'
               'Bluetooth port failed: the port reported an error or disappeared, for example because the roaster was '
-              'switched off or went out of range. Artisan is told at once through its own port. Check the roaster, reset '
-              'Bluetooth if needed, and start the bridge again.'),
+              'switched off or went out of range. Artisan is told at once through its own port.\n\n'
+              'After either stop:\n'
+              '1.  In Artisan, click OFF.\n'
+              '2.  Check the roaster. If it was switched off or lost power, switch it on again.\n'
+              '3.  Reset Bluetooth yourself before you start the bridge again. After the roaster has been switched on again, '
+              'starting the bridge alone may not reconnect. On the tested setup, after the roaster had been unplugged and '
+              'plugged in again while idle, starting the bridge alone got no replies. What worked, in that one test: restart '
+              'the Bluetooth service in Terminal with "sudo pkill -x bluetoothd", wait until Bluetooth is back, turn Bluetooth '
+              'off, wait two seconds, and turn it on again.\n'
+              '4.  Start the bridge and wait for "Waiting for Artisan".\n'
+              '5.  In Artisan, click ON.\n\n'
+              'The bridge does not reset Bluetooth, reopen the port or start again on its own.'),
         Topic('What the bridge does and does not do',
               'It passes bytes between Artisan and the roaster unchanged, including Artisan\'s own safety commands. '
               'It never answers for the roaster, never repeats a command, and never keeps the roaster\'s safety guard '
@@ -113,7 +127,11 @@ STOP_IDLE = (
 FAILURE_ADVICE = {
     'setup': 'Nothing was changed. Check that Bluetooth is on, the roaster is paired and switched on, and that Artisan '
              'is not connected to the roaster directly.',
-    'upstream': 'Artisan has been told through its own port. Check the roaster. Then reset Bluetooth if needed and start the bridge again.',
-    'abrupt': 'Artisan went away without telling the roaster, so the bridge closed the port: the roaster sees the link drop, '
-              'as it would without a bridge. Check the roaster. Then reset Bluetooth and start the bridge again.',
+    'upstream': 'Artisan has been told through its own port. Check the roaster. If it was switched off, switch it on again; '
+                'starting the bridge alone may then not reconnect. Reset Bluetooth yourself, then start the bridge again. '
+                'Help explains the reset.',
+    'abrupt': 'The bridge cannot tell whether Artisan crashed or was force quit, or gave up because the roaster stopped answering '
+              '(for example after a loss of power). It closed the roaster\'s port, so the roaster sees the link drop, as it '
+              'would without a bridge. Check the roaster and switch it on again if needed. Starting the bridge alone may then '
+              'not reconnect: reset Bluetooth yourself first. Help explains the reset.',
 }

@@ -343,13 +343,14 @@ class TestFailureAlerts:
         quiet['front'].clear()
         delegate.tick_(None)
         message, text, buttons, critical = delegate.ask.shown[-1]
-        assert message == 'Artisan vanished mid-session, bridge stopped' and critical and buttons == ['OK', 'Help']
-        assert 'the roaster sees the link drop' in text and 'reset Bluetooth' in text
+        assert message == 'Connection lost during an active session. The bridge stopped.' and critical and buttons == ['OK', 'Help']
+        assert 'CL AR was not delivered' in text and 'cannot tell whether Artisan crashed or was force quit' in text
+        assert 'the roaster sees the link drop' in text and 'reset Bluetooth yourself first' in text
         assert quiet['front'] == ['Kaleido Serial Bridge Help']
         delegate.tick_(None)
         assert len(delegate.ask.shown) == 1  # told once
         entries = menu(delegate)
-        assert 'Artisan vanished mid-session, bridge stopped' in entries and entries['Start Bridge']
+        assert 'Connection lost during an active session. The bridge stopped.' in entries and entries['Start Bridge']
         wait_for(lambda: sim.links() == ['up', 'down'])
 
     def test_bluetooth_port_failure(self, launch: Callable[[], Any], sim: SimRoaster) -> None:
@@ -360,6 +361,7 @@ class TestFailureAlerts:
         delegate.tick_(None)
         message, text, _, critical = delegate.ask.shown[-1]
         assert message == 'Bluetooth port failed, bridge stopped' and critical and 'Check the roaster' in text
+        assert 'starting the bridge alone may then not reconnect' in text and 'Reset Bluetooth yourself' in text
 
     def test_a_start_that_fails_is_explained(self, launch: Callable[[], Any], dev: Path) -> None:
         delegate = launch()
@@ -378,6 +380,14 @@ class TestFailureAlerts:
         # the advice promises nothing: a restart helped on the tested setup, and one first start after a restart still failed
         assert 'worked each time' not in silent and 'not every time' in silent
         assert 'No reset is known to bring the connection back every time' in silent
+        stops = topics['When the bridge stops by itself']
+        # the cause is not claimed: a crash and Artisan's own timeout on a silent roaster look the same to the bridge
+        assert stops.startswith('Connection lost during an active session') and 'cannot tell why' in stops
+        assert 'vanished' not in stops
+        # switching the roaster on again may need a manual Bluetooth reset; the bridge does none itself
+        assert 'starting the bridge alone may not reconnect' in stops and 'Reset Bluetooth yourself before' in stops
+        assert 'sudo pkill -x bluetoothd' in stops and 'in that one test' in stops
+        assert 'does not reset Bluetooth, reopen the port or start again on its own' in stops
         back = topics['Back to direct Bluetooth']
         assert 'artisan-direct.aset' in back and '/dev/cu.Roaster_SRSv6' in back and guide.ARTISAN_PORT_MENU in back
         assert 'has not been verified' in topics['What the bridge does and does not do']

@@ -22,9 +22,11 @@ What the bridge never does
 - it never closes and reopens the real port, and it never touches the Bluetooth stack
 
 It reads Artisan's commands only to know whether Artisan left a session open at the roaster
-(any command other than PI, TU and RD opens one, "CL AR" ends it). If the client disappears while
-a session is open the bridge closes the real port, so the roaster sees the link drop exactly as it
-would without a bridge, and stops. See docs/SAFETY.md.
+(any command other than PI, TU and RD opens one, "CL AR" ends it). If the client closes the virtual
+port while a session is open the bridge closes the real port, so the roaster sees the link drop
+exactly as it would without a bridge, and stops. It cannot tell why the client closed it: Artisan
+crashing or being force quit looks the same as Artisan giving up after the roaster stopped answering.
+See docs/SAFETY.md.
 """
 
 from __future__ import annotations
@@ -45,13 +47,14 @@ import serial  # pyserial
 EXIT_OK = 0        # stopped on request
 EXIT_SETUP = 2     # the real port or the client endpoint could not be set up
 EXIT_UPSTREAM = 3  # the real port failed
-EXIT_ABRUPT = 4    # the client vanished with a session open; the real port got closed on purpose
+EXIT_ABRUPT = 4    # the client closed the virtual port with a session open; the real port got closed on purpose
 
 DEFAULT_DIR = os.path.join(os.path.expanduser('~'), '.kaleido-bridge')
 DEFAULT_LINK = os.path.join(DEFAULT_DIR, 'cu.Roaster_bridge')
 
 CLIENT_POLL = 0.05        # seconds between checks for a new client while none is attached
 SILENCE_WARNING = 5.0     # warn if the roaster did not answer for this long while Artisan keeps asking
+QUIET_BEFORE_CLOSE = 2.0  # a roaster silent this long when the client leaves is mentioned in the stop reason
 STALL_LIMIT = 3.0         # the real port not taking data for this long counts as a failure
 SIGINT_CONFIRM = 5.0      # a second Ctrl-C within this time stops the bridge during an open session
 MAX_PENDING = 65536       # bytes kept for a side that is slow to take them
@@ -106,7 +109,7 @@ class SessionTracker:
     def client_gone(self) -> tuple[bool, str]:
         """Called when the client disappeared. Returns (clean, reason)."""
         if self.open:
-            return False, f'a session is open at the roaster (opened by {self.opened_by}) and CL AR was not delivered'
+            return False, f'a session was open at the roaster (opened by {self.opened_by}) and CL AR was not delivered'
         return True, ('Artisan ended its session with CL AR' if self.ended else 'no session was opened at the roaster')
 
 
@@ -476,20 +479,30 @@ class Bridge:
         if session.commands and not session.to_client_bytes:
             self.silent_sessions += 1
         clean, reason = self.tracker.client_gone()
-        summary = (f'after {time.time() - session.started:.1f} s | {session.commands} commands delivered to the roaster, '
+        now = time.time()
+        summary = (f'after {now - session.started:.1f} s | {session.commands} commands delivered to the roaster, '
                    f'{session.to_client_bytes} bytes passed to Artisan'
                    + (f', {dropped} undelivered command(s) dropped' if dropped else ''))
         if clean:
             log.info('session %d: Artisan detached, clean (%s) %s | real port stays open', session.number, reason, summary)
             return
-        log.error('session %d: Artisan VANISHED: %s %s', session.number, reason, summary)
+        # What the bridge saw of the roaster just before: the one hint it has about why the port was closed.
+        quiet = ''
+        if session.unanswered and session.last_to_roaster is not None:
+            silent_for = now - (session.last_from_roaster if session.last_from_roaster is not None else session.started)
+            if silent_for >= QUIET_BEFORE_CLOSE:
+                quiet = f'The roaster had not answered for {silent_for:.1f} s before that ({session.unanswered} commands unanswered).'
+        log.error('session %d: CONNECTION LOST during an active session: the virtual port was closed and %s %s%s', session.number,
+                  reason, summary, f' | {quiet}' if quiet else '')
+        log.error('the bridge cannot tell why: Artisan crashing or being force quit looks the same as Artisan giving up after the roaster '
+                  'stopped answering, for example because the roaster lost power or its Bluetooth link.')
         if self.keep_on_abrupt:
             log.error('real port kept open because of --keep-link-on-abrupt-exit: the roaster still has an Artisan session open, '
                       'the link is up and nobody is talking to it. The bridge sends nothing.')
             return
         log.error('closing the real port so that the roaster sees the link drop, exactly as it would without the bridge. '
                   'The bridge sent nothing to the roaster.')
-        self.stop_reason = f'Artisan vanished: {reason}'
+        self.stop_reason = f'Artisan\'s virtual port was closed while {reason}.' + (f' {quiet}' if quiet else '')
         self.stop(EXIT_ABRUPT)
 
     def trace_lines(self, data: bytes) -> None:

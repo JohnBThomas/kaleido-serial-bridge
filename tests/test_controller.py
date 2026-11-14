@@ -343,7 +343,8 @@ class TestDerivedStatus:
     def test_stopped_and_failed(self) -> None:
         assert self.derive(None).state is State.STOPPED
         assert self.derive(None, last_exit=Exit(EXIT_OK, '', self.NOW)).state is State.STOPPED
-        for code, word in ((EXIT_SETUP, 'Could not start'), (EXIT_UPSTREAM, 'Bluetooth port failed'), (EXIT_ABRUPT, 'Artisan vanished')):
+        for code, word in ((EXIT_SETUP, 'Could not start'), (EXIT_UPSTREAM, 'Bluetooth port failed'),
+                           (EXIT_ABRUPT, 'Connection lost during an active session')):
             status = self.derive(None, last_exit=Exit(code, 'why', self.NOW))
             assert status.state is State.FAILED and status.attention and word in status.headline and status.detail == 'why'
 
@@ -399,8 +400,9 @@ class TestFailures:
         artisan.vanish()  # a crash or force quit: no CL AR
         wait_for(lambda: state(controller) is State.FAILED, what='the failure to show')
         status = controller.poll()
-        assert status.headline == 'Artisan vanished mid-session, bridge stopped' and status.attention and not status.running
-        assert 'CL AR was not delivered' in status.detail
+        assert status.headline == 'Connection lost during an active session. The bridge stopped.'
+        assert status.attention and not status.running
+        assert 'CL AR was not delivered' in status.detail and 'had not answered' not in status.detail
         event = controller.take_exit()
         assert event is not None and event.code == EXIT_ABRUPT
         assert controller.take_exit() is None  # reported once
@@ -408,6 +410,24 @@ class TestFailures:
         assert sim.guard_armed and '{[CL AR]}' not in sim.commands()
         controller.acknowledge_failure()
         assert state(controller) is State.STOPPED
+
+    def test_artisan_giving_up_on_a_silent_roaster_stops_the_bridge_the_same_way(self, controller: BridgeController, sim: SimRoaster) -> None:
+        controller.start()
+        artisan = Artisan(controller.virtual_port, timeout=0.3)
+        artisan.on()
+        sim.mute = True  # e.g. the roaster lost power and its port reports nothing
+        for _ in range(3):
+            assert artisan.ask('{[RD A0]}') == b''
+        time.sleep(1.5)
+        artisan.vanish()  # Artisan's read timeout: the port is closed without CL AR
+        wait_for(lambda: state(controller) is State.FAILED, what='the failure to show')
+        status = controller.poll()
+        assert status.headline == 'Connection lost during an active session. The bridge stopped.'
+        assert 'CL AR was not delivered' in status.detail and 'The roaster had not answered for' in status.detail
+        event = controller.take_exit()
+        assert event is not None and event.code == EXIT_ABRUPT
+        wait_for(lambda: sim.links() == ['up', 'down'])
+        assert '{[CL AR]}' not in sim.commands()
 
     def test_losing_the_real_port_stops_the_bridge_and_says_so(self, controller: BridgeController, sim: SimRoaster, paths: Paths) -> None:
         controller.start()

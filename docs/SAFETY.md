@@ -3,7 +3,8 @@
 **The bridge is not a safety device.** It does not make a roaster safer and it is not meant for
 unattended operation. This page describes what it passes on and what it does when something goes
 wrong, so that its behavior can be judged. The table was tested with a simulated roaster. On
-hardware, only its first row has been observed; see [EVIDENCE.md](EVIDENCE.md).
+hardware, its first row has been observed, and the row for a roaster that stops answering during a
+session once, with the roaster idle and its power unplugged; see [EVIDENCE.md](EVIDENCE.md).
 
 Artisan arms the roaster's safety guard with `SC AR` after connecting and ends it with `CL AR`
 when it disconnects on purpose (OFF, quit). **What the Kaleido firmware does while the guard is
@@ -35,18 +36,27 @@ each situation, with a direct Bluetooth connection and through the bridge.
 | Artisan goes away before `SC AR` (a failed handshake) | only `PI`/`TU`, then the link drops | only `PI`/`TU`; link stays up | keeps the port open |
 | The app is stopped, quits or crashes with a session open | — | no `CL AR`, commands stop, link drops | Artisan gets an I/O error on its port and reports the disconnect. Stop and Quit warn first. |
 | The Bluetooth port fails (error, device gone) | — | — | stops, takes the virtual port away so Artisan reports the disconnect, shows an alert. No reopen, no reset |
-| The roaster stops answering, link still up | Artisan times out | Artisan times out the same way; no answer is made up, not even for `CL AR` | shows "No replies from the roaster" |
+| The roaster stops answering while Artisan has a session open (for example, it loses power) | no `CL AR`; after 5 s without a reply Artisan's read timeout closes the port, so the link drops; Artisan stays open and tries again | no answer is made up, not even for `CL AR`. When Artisan's timeout closes the virtual port, the bridge closes the roaster's port: **link drops** | stops and shows "Connection lost during an active session. The bridge stopped.", adding how long the roaster had not answered. It cannot tell this apart from a crash |
+| The roaster stops answering before a session is open (Artisan's handshake pings) | Artisan times out and tries again | the same; no answer is made up | keeps the port open, shows "No replies from the roaster" |
 
 Every "through the bridge" entry is covered by a test against the simulated roaster
 (`tests/test_engine.py`, `tests/test_controller.py`, `tests/test_app.py`).
 
-### Why the bridge closes the port when Artisan vanishes
+### Why the bridge closes the port when Artisan's port closes mid-session
 
 If Artisan disappears while it has a session open, keeping the link up would leave the roaster
 with an armed guard, a live link, and nobody talking to it. Whether the roaster then protects
 itself depends on firmware behaviour nobody has verified. So the bridge makes that case look
 as it does without a bridge: the link drops. This is a choice about what the bridge passes on, not a
 claim about what the roaster then does. The price is a Bluetooth reset after a crash.
+
+The bridge sees only that Artisan's virtual port closed while a session was open and `CL AR` had
+not been delivered. Artisan closes it that way when it crashes or is force quit, and also when it
+gives up after 5 seconds without a reply from the roaster, for example because the roaster lost
+power or its Bluetooth link. In the one hardware run of that kind, the roaster's port reported no
+error before Artisan gave up, so the bridge could not know that the roaster was gone. It treats
+every such close alike, and says in its alert whether the roaster had stopped answering before
+the port closed. It does not reconnect or reset anything afterwards.
 
 The command line bridge has an option to keep the link instead (`--keep-link-on-abrupt-exit`).
 The app does not offer it.

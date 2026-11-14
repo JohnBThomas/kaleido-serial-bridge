@@ -173,7 +173,7 @@ menu (**Setup Guide…**).
 | Artisan attached, waiting for the first reply | Artisan has opened the virtual port; nothing has come back yet. |
 | Receiving roaster replies | Replies of the roaster are being passed on to Artisan right now. |
 | No replies from the roaster | Artisan is asking and the roaster does not answer. |
-| Stopped after a failure | The Bluetooth port failed, or Artisan vanished mid-session. An alert says which. |
+| Stopped after a failure | The Bluetooth port failed, or the connection was lost during an active session. An alert says which. |
 
 An open port is never shown as communication. Only replies that were actually passed on to
 Artisan count.
@@ -201,7 +201,8 @@ On the tested setup the sequence that worked was: restart the Mac, start the bri
 restart connected; one did not, and the next start after one more restart did. Stopping the
 bridge closes the roaster's port. On that setup the opens of the port that followed got no
 replies, including opens after a restart of the Bluetooth service or after turning Bluetooth off
-and on.
+and on. The one exception on record followed both, one after the other, after the roaster had lost
+power.
 
 ## Manual recovery: no readings
 
@@ -220,13 +221,43 @@ restart of the Mac. Waiting did not help there, and neither did clicking ON agai
    one that did not was followed by a connection after one more restart. Restarting the Bluetooth
    service in Terminal with `sudo pkill -x bluetoothd` was followed by a connection once, with
    Artisan connected directly, and by silent starts of the bridge twice. Turning Bluetooth off and
-   on was followed by a silent start the one time it is in the logs.
+   on, on its own, was followed by a silent start the one time it is in the logs. Doing both, the
+   service restart and then Bluetooth off and on, was followed by a connection the one time it was
+   tried, after the roaster had lost power (see the next section).
 4. Start the bridge and wait for "Waiting for Artisan". If the menu stays at "Waiting for
    Bluetooth" for more than a minute, stop the bridge and restart the Mac once more.
 5. In Artisan, click ON.
 
 No reset is known to bring the connection back every time. The app never resets Bluetooth and
 never reopens the port on its own.
+
+## Manual recovery: after the bridge stopped by itself
+
+The alert says one of two things.
+
+- **Connection lost during an active session. The bridge stopped.** Artisan's virtual port closed
+  while Artisan had a session open at the roaster, without `CL AR`. The bridge cannot tell why.
+  Artisan crashing or being force quit looks like this. So does Artisan giving up by itself after
+  about 5 seconds without a reply (Artisan's read timeout), for example because the roaster lost
+  power or its Bluetooth link; Artisan then stays open. The alert adds whether the roaster had
+  stopped answering before the port closed. Either way the bridge closes the roaster's port and
+  stops, as described in [docs/SAFETY.md](docs/SAFETY.md).
+- **Bluetooth port failed, bridge stopped.** The roaster's port reported an error or disappeared.
+
+Then:
+
+1. In Artisan, click OFF.
+2. Check the roaster. If it was switched off or lost power, switch it on again.
+3. Reset Bluetooth yourself before starting the bridge again. After the roaster has been switched
+   on again, starting the bridge alone may not reconnect. On the tested setup, after the roaster
+   had been unplugged and plugged in again while idle, a start of the bridge alone got no replies.
+   What worked, in that one test: restart the Bluetooth service with `sudo pkill -x bluetoothd`,
+   wait until Bluetooth is back, turn Bluetooth off, wait two seconds, and turn it on again. See
+   [docs/EVIDENCE.md](docs/EVIDENCE.md#idle-power-loss-test).
+4. Start the bridge and wait for "Waiting for Artisan".
+5. In Artisan, click ON.
+
+The app does not reset Bluetooth, reopen the port or start again by itself.
 
 ## Switching back to direct Bluetooth
 
@@ -282,7 +313,7 @@ Nothing else is installed.
 ## For developers
 
 ```
-python -m pytest                              # 72 tests against a simulated roaster, about 30 s
+python -m pytest                              # 74 tests against a simulated roaster, about 30 s
 ruff check . && mypy && codespell
 packaging/build.sh
 python tests/packaged_app_check.py "$TMPDIR/kaleido-serial-bridge-build/dist/Kaleido Serial Bridge.app"

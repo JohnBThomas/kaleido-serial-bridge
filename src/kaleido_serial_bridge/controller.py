@@ -80,7 +80,7 @@ def derive_status(snapshot: Snapshot | None, link: LinkView, last_exit: Exit | N
             headline = {
                 EXIT_SETUP: 'Could not start the bridge',
                 EXIT_UPSTREAM: 'Bluetooth port failed, bridge stopped',
-                EXIT_ABRUPT: 'Artisan vanished mid-session, bridge stopped',
+                EXIT_ABRUPT: 'Connection lost during an active session. The bridge stopped.',
             }.get(last_exit.code, 'Bridge stopped after an error')
             return Status(State.FAILED, headline, last_exit.reason, attention=True, link=link.state)
         return Status(State.STOPPED, 'Bridge stopped', "The roaster's Bluetooth port is not open.", link=link.state)

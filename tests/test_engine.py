@@ -282,8 +282,32 @@ class TestFailures:
         assert set(sim.commands()) == {*HANDSHAKE, '{[RD A0]}'}  # nothing but what Artisan itself sent
         assert not bridge.link.exists()
         text = bridge.text()
-        assert 'Artisan VANISHED: a session is open at the roaster (opened by {[SC AR]})' in text
+        assert ('CONNECTION LOST during an active session: the virtual port was closed and a session was open at the roaster '
+                '(opened by {[SC AR]})') in text
+        assert 'the bridge cannot tell why' in text
+        assert 'had not answered' not in text  # the roaster was answering until Artisan went
         assert 'closing the real port so that the roaster sees the link drop' in text
+
+    def test_artisan_timing_out_on_a_silent_roaster_drops_the_link_and_says_the_roaster_was_silent(
+            self, sim: SimRoaster, bridge: BridgeProcess) -> None:
+        # Seen on hardware: the roaster lost power, its port reported nothing, and Artisan's read timeout
+        # closed the virtual port without CL AR. To the bridge that is the same as a crash.
+        client = Client(bridge.link)
+        client.handshake()
+        sim.mute = True  # the port stays open and reports no error; nothing comes back
+        client.port.timeout = 0.3
+        for _ in range(3):
+            assert client.ask('{[RD A0]}') == b''
+        time.sleep(1.5)
+        client.vanish()  # Artisan gives up: it closes the port and sends no CL AR
+        assert bridge.wait_exit() == EXIT_ABRUPT  # the stop behaviour is the same as for a crash
+        wait_for(lambda: sim.links() == ['up', 'down'], what='the link to drop')
+        assert sim.guard_armed and '{[CL AR]}' not in sim.commands()
+        assert not bridge.link.exists()
+        text = bridge.text()
+        assert 'CONNECTION LOST during an active session' in text
+        assert 'The roaster had not answered for' in text and '(3 commands unanswered)' in text
+        assert 'the bridge cannot tell why' in text
 
     def test_a_silent_client_that_keeps_the_port_open_is_left_alone(self, sim: SimRoaster, bridge: BridgeProcess) -> None:
         client = Client(bridge.link)

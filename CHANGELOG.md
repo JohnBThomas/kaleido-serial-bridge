@@ -1,5 +1,21 @@
 # Changelog
 
+## Unreleased
+
+- The alert for a session that ends without `CL AR` now reads "Connection lost during an active
+  session. The bridge stopped." instead of "Artisan vanished mid-session". The bridge sees only
+  that Artisan's virtual port closed during a session; it cannot tell a crash from Artisan giving
+  up after 5 seconds without a reply. The alert now adds whether the roaster had stopped answering
+  before the port closed. What the bridge does in that case is unchanged: it closes the roaster's
+  port and stops. **Simulator-tested only; hardware verification is pending.**
+- Recovery help: after the roaster has been switched on again, starting the bridge alone may not
+  reconnect. In one idle power-loss test on an M2 Lite, a start of the bridge alone got no replies;
+  a manual Bluetooth reset (restart of the Bluetooth service, then Bluetooth off and on) followed by
+  a new start did. That is one attempt, not a rule. The app still does not reset Bluetooth or
+  reconnect by itself.
+- docs/EVIDENCE.md records that idle power-loss test, made with the signed 0.2.0 build. That build
+  showed the old wording; the new alert and help texts have not yet been run on hardware.
+
 ## 0.2.0 — 2026-11-13
 
 First version as a macOS menu bar app. Offered as a download: a disk image for Apple silicon,
