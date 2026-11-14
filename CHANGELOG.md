@@ -1,7 +1,16 @@
 # Changelog
 
-## Unreleased
+## 0.2.1 — release candidate, not published
 
+- **Check for Updates…** in the menu. One click asks GitHub, in the background and with a time
+  limit of 10 s, for the latest published stable release of this repository, and compares its
+  version with the installed one numerically (0.2.10 comes after 0.2.9). The answer is one of
+  three: a newer version is available (both versions, and an **Open Release Page** button for the
+  release on the official repository), the installed version is up to date, or the check could not
+  be completed (offline, timed out, an error from GitHub, or an answer that is not what was
+  expected). It is manual: nothing is checked by itself, nothing is downloaded or installed, and the
+  bridge keeps running. A second click while a check is in progress does nothing. The request uses
+  macOS's networking and sends only the app's name and version as its User-Agent.
 - Guided Bluetooth recovery: a **Reset Bluetooth & Restart Bridge** button in the Help window (the
   connection-loss alert's Help button opens it). After a confirmation that the roaster is switched
   on, idle and its heater off, one click makes one attempt: restart the Bluetooth service (with

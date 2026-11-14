@@ -6,7 +6,9 @@ shown, alerts are answered by the test, and the clipboard is replaced.
 
 from __future__ import annotations
 
+import json
 import sys
+import threading
 import time
 from collections.abc import Callable, Iterator
 from pathlib import Path
@@ -27,6 +29,7 @@ from test_controller import Artisan, Link, wait_for  # noqa: E402
 from kaleido_serial_bridge import app as app_module  # noqa: E402
 from kaleido_serial_bridge import controller as controller_module  # noqa: E402
 from kaleido_serial_bridge import guide, loginitem, ui  # noqa: E402
+from kaleido_serial_bridge import updates as updates_module  # noqa: E402
 from kaleido_serial_bridge.app import AppDelegate  # noqa: E402
 from kaleido_serial_bridge.controller import BridgeController, State  # noqa: E402
 from kaleido_serial_bridge.linkstate import CONNECTED, LinkMonitor  # noqa: E402
@@ -749,3 +752,101 @@ class TestTroubleshootingSpaces:
         delegate.show_help()
         delegate.show_settings()
         assert used[-2:] == ['here:Kaleido Serial Bridge Help', 'forward:Kaleido Serial Bridge Settings']
+
+
+class TestCheckForUpdates:
+    """The menu item: one background request per click, one of three answers, nothing else changed."""
+
+    @staticmethod
+    def answer(delegate: Any, kind_body: tuple[int, bytes] | Exception) -> list[str]:
+        asked: list[str] = []
+
+        def fetch(url: str, _timeout: float) -> tuple[int, bytes]:
+            asked.append(url)
+            if isinstance(kind_body, Exception):
+                raise kind_body
+            return kind_body
+        delegate.update_check = updates_module.UpdateCheck(fetch)
+        return asked
+
+    @staticmethod
+    def finish(delegate: Any) -> None:
+        wait_for(lambda: not delegate.update_check.in_progress, what='the check to finish')
+        delegate.tick_(None)
+
+    def test_the_menu_has_the_item(self, launch: Callable[[], Any]) -> None:
+        entries = menu(launch())
+        assert entries['Check for Updates…']
+        assert list(entries).index('Check for Updates…') == list(entries).index('Troubleshooting…') + 1
+
+    def test_a_newer_version_offers_the_release_page(self, launch: Callable[[], Any], sim: SimRoaster) -> None:
+        delegate = launch()
+        complete_setup(delegate, sim)
+        opened: list[str] = []
+        delegate.open_url = opened.append
+        body = json.dumps({'tag_name': 'v99.0.0', 'html_url': 'https://github.com/JohnBThomas/kaleido-serial-bridge/releases/tag/v99.0.0'}).encode()
+        asked = self.answer(delegate, (200, body))
+        delegate.ask.answers = [0]  # Open Release Page
+        delegate.checkForUpdates_(None)
+        self.finish(delegate)
+        message, text, buttons, _ = delegate.ask.shown[-1]
+        assert message == 'Kaleido Serial Bridge 99.0.0 is available' and buttons == ['Open Release Page', 'Later']
+        assert 'Version 99.0.0 is available. You have version 0.2.1.' in text and 'install it' in text
+        assert opened == ['https://github.com/JohnBThomas/kaleido-serial-bridge/releases/tag/v99.0.0']
+        assert asked == ['https://api.github.com/repos/JohnBThomas/kaleido-serial-bridge/releases/latest']
+        assert delegate.controller.running() and sim.links() == ['up']  # the bridge was left alone
+
+    def test_later_opens_nothing(self, launch: Callable[[], Any]) -> None:
+        delegate = launch()
+        opened: list[str] = []
+        delegate.open_url = opened.append
+        body = json.dumps({'tag_name': 'v99.0.0', 'html_url': 'https://github.com/JohnBThomas/kaleido-serial-bridge/releases/tag/v99.0.0'}).encode()
+        self.answer(delegate, (200, body))
+        delegate.ask.answers = [1]  # Later
+        delegate.checkForUpdates_(None)
+        self.finish(delegate)
+        assert opened == []
+
+    def test_the_same_version_is_up_to_date(self, launch: Callable[[], Any]) -> None:
+        delegate = launch()
+        body = json.dumps({'tag_name': 'v0.2.1', 'html_url': 'https://github.com/JohnBThomas/kaleido-serial-bridge/releases/tag/v0.2.1'}).encode()
+        self.answer(delegate, (200, body))
+        delegate.checkForUpdates_(None)
+        self.finish(delegate)
+        message, text, buttons, _ = delegate.ask.shown[-1]
+        assert message == 'Kaleido Serial Bridge is up to date' and buttons == ['OK']
+        assert 'You have version 0.2.1, the latest published release.' in text
+
+    def test_offline_says_the_check_could_not_be_completed(self, launch: Callable[[], Any]) -> None:
+        delegate = launch()
+        self.answer(delegate, OSError('The Internet connection appears to be offline.'))
+        delegate.checkForUpdates_(None)
+        self.finish(delegate)
+        message, text, buttons, _ = delegate.ask.shown[-1]
+        assert message == 'The update check could not be completed' and buttons == ['OK']
+        assert 'offline' in text and 'Nothing was changed' in text
+
+    def test_malformed_data_says_the_check_could_not_be_completed(self, launch: Callable[[], Any]) -> None:
+        delegate = launch()
+        self.answer(delegate, (200, b'<html>not json</html>'))
+        delegate.checkForUpdates_(None)
+        self.finish(delegate)
+        assert delegate.ask.shown[-1][0] == 'The update check could not be completed'
+
+    def test_a_second_click_while_checking_starts_nothing(self, launch: Callable[[], Any]) -> None:
+        delegate = launch()
+        gate = threading.Event()
+        calls: list[str] = []
+
+        def held(url: str, _timeout: float) -> tuple[int, bytes]:
+            calls.append(url)
+            gate.wait(5)
+            return 200, json.dumps({'tag_name': 'v0.2.1', 'html_url': 'https://github.com/JohnBThomas/kaleido-serial-bridge/releases/tag/v0.2.1'}).encode()
+        delegate.update_check = updates_module.UpdateCheck(held)
+        delegate.checkForUpdates_(None)
+        delegate.checkForUpdates_(None)
+        delegate.tick_(None)
+        assert delegate.ask.shown == []  # nothing to say yet, and the timer keeps running
+        gate.set()
+        self.finish(delegate)
+        assert len(calls) == 1 and len(delegate.ask.shown) == 1

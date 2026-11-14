@@ -27,11 +27,12 @@ from .controller import BridgeController, Exit, State, Status
 from .engine import EXIT_ABRUPT, EXIT_OK, EXIT_SETUP, EXIT_UPSTREAM
 from .menu import Entry, menu_entries
 from .recovery import MacSystem, Recovery, System
-from .ui import HelpWindow, SettingsWindow, SetupGuide, activate_app, copy_text, run_alert, run_sheet, state_symbol
+from .ui import HelpWindow, SettingsWindow, SetupGuide, activate_app, copy_text, open_url, run_alert, run_sheet, state_symbol
+from .updates import CURRENT, NEWER, RELEASE_PAGE_PREFIX, Result, UpdateCheck
 
 ACTIONS = {
     'start': 'startBridge:', 'stop': 'stopBridge:', 'copy': 'copyVirtualPort:', 'log': 'openLog:', 'settings': 'showSettings:',
-    'guide': 'showGuide:', 'help': 'showHelp:', 'about': 'showAbout:', 'quit': 'quitApp:',
+    'guide': 'showGuide:', 'help': 'showHelp:', 'updates': 'checkForUpdates:', 'about': 'showAbout:', 'quit': 'quitApp:',
 }
 TICK = 0.5  # seconds between looks at the bridge
 
@@ -54,6 +55,8 @@ class AppDelegate(NSObject):
         self.help_window: Any = None
         self.recovery_system: System | None = None  # MacSystem on first use; replaced in tests
         self.recovery: Recovery | None = None
+        self.update_check = UpdateCheck()  # its fetch is replaced in tests
+        self.open_url = open_url            # replaced in tests
         self.timer: Any = None
         self.busy = False
         self.quit_requested = False
@@ -149,6 +152,9 @@ class AppDelegate(NSObject):
                 self.report_failure(event)  # during a recovery attempt the Help window says why the bridge stopped instead
             if recovering:
                 self.advance_recovery()
+            update = self.update_check.take()
+            if update is not None:
+                self.report_update(update)
         finally:
             self.busy = False
 
@@ -229,6 +235,30 @@ class AppDelegate(NSObject):
             self.help_window.update_recovery(recovery.progress())
         self.refresh()
 
+    # ---- Check for Updates (manual; the user downloads and installs a newer version)
+
+    @objc.python_method
+    def check_for_updates(self) -> bool:
+        """Starts one check in the background. A click while one is in progress does nothing."""
+        return self.update_check.begin()
+
+    @objc.python_method
+    def report_update(self, result: Result) -> None:
+        if result.kind == NEWER:
+            text = (f'Version {result.latest} is available. You have version {result.installed}.\n\n'
+                    'Download the disk image from the release page and install it the way you installed this one. '
+                    'Nothing is downloaded or changed by this check, and the bridge keeps running.')
+            choice = self.ask(f'{APP_NAME} {result.latest} is available', text, ['Open Release Page', 'Later'], False)
+            if choice == 0 and result.url.startswith(RELEASE_PAGE_PREFIX):  # only the official repository's release page
+                self.open_url(result.url)
+        elif result.kind == CURRENT:
+            text = (f'You have version {result.installed}. The latest published release is {result.latest}.'
+                    if result.latest != result.installed else f'You have version {result.installed}, the latest published release.')
+            self.ask(f'{APP_NAME} is up to date', text, ['OK'], False)
+        else:
+            self.ask('The update check could not be completed',
+                     f'{result.reason}\n\nYou have version {result.installed}. Nothing was changed.', ['OK'], False)
+
     @objc.python_method
     def show_guide(self) -> None:
         if self.guide_window is None:
@@ -272,6 +302,9 @@ class AppDelegate(NSObject):
 
     def showHelp_(self, _sender: Any) -> None:  # noqa: N802
         self.show_help()
+
+    def checkForUpdates_(self, _sender: Any) -> None:  # noqa: N802
+        self.check_for_updates()
 
     def showAbout_(self, _sender: Any) -> None:  # noqa: N802
         activate_app()

@@ -41,6 +41,7 @@ def menu_entries(status: Status, version: str) -> list[Entry]:
         Entry('settings', 'Settings…'),
         Entry('guide', 'Setup Guide…'),
         Entry('help', 'Troubleshooting…'),
+        Entry('updates', 'Check for Updates…'),
         Entry(''),
         Entry('about', f'About Kaleido Serial Bridge {version}'),
         Entry('quit', 'Quit'),

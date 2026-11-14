@@ -179,9 +179,17 @@ An open port is never shown as communication. Only replies that were actually pa
 Artisan count.
 
 The menu has **Start Bridge**, **Stop Bridge…**, **Copy Virtual Port Path**, **Open Log**,
-**Settings…**, **Setup Guide…**, help, About and Quit. Stop and Quit ask first. If Artisan is
+**Settings…**, **Setup Guide…**, **Troubleshooting…**, **Check for Updates…**, About and Quit.
+Stop and Quit ask first. If Artisan is
 attached, the answer defaults to Cancel: stopping then takes the port away from Artisan before it
 can tell the roaster that it is leaving. Click OFF in Artisan first.
+
+**Check for Updates…** asks GitHub for the latest published release of this repository, only when
+you click it, and says whether a newer version is available, the installed one is up to date, or
+the check could not be completed. For a newer version, **Open Release Page** opens the release on
+GitHub; download the disk image there and install it as before. The app downloads and installs
+nothing itself, and the bridge keeps running during the check. The request goes to
+`api.github.com` and carries the app's name and version, nothing else about you or your Mac.
 
 ### Settings
 
@@ -356,7 +364,7 @@ Nothing else is installed.
 ## For developers
 
 ```
-python -m pytest                              # 116 tests against a simulated roaster, about 40 s
+python -m pytest                              # 153 tests against a simulated roaster, about 40 s
 ruff check . && mypy && codespell
 packaging/build.sh
 python tests/packaged_app_check.py "$TMPDIR/kaleido-serial-bridge-build/dist/Kaleido Serial Bridge.app"

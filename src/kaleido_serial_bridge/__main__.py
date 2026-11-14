@@ -45,6 +45,12 @@ def main() -> int:
         return 0
     if arguments[:1] == ['--selftest']:
         return selftest()
+    if arguments[:1] == ['--check-for-updates']:
+        # for checks of a built app: the same request the menu item makes, printed instead of shown
+        from .updates import check, fetch_with_foundation
+        result = check(fetch_with_foundation)
+        print(f'update check: {result.kind} | installed {result.installed} | latest {result.latest or "-"} | {result.url or result.reason}')
+        return 0 if result.kind != 'failed' else 1
     if arguments[:1] == ['--render-screens'] and len(arguments) == 2:
         from .app import render_screens
         for path in render_screens(arguments[1]):

@@ -168,6 +168,10 @@ def stay_in_current_space(window: Any) -> None:
                                   | NSWindowCollectionBehaviorFullScreenAuxiliary)
 
 
+def open_url(url: str) -> None:
+    NSWorkspace.sharedWorkspace().openURL_(NSURL.URLWithString_(url))
+
+
 def copy_text(text: str) -> None:
     pasteboard = NSPasteboard.generalPasteboard()
     pasteboard.clearContents()
