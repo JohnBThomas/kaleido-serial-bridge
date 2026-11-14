@@ -252,7 +252,7 @@ did not attach, and the restart ended it at 20:08:39.
 
 ## The signed build
 
-This is the disk image of the 0.2.0 pre-release, `KaleidoSerialBridge-0.2.0-arm64.dmg`, with the
+This is the disk image of the 0.2.0 release, `KaleidoSerialBridge-0.2.0-arm64.dmg`, with the
 SHA-256 `8d93e48150a8d98ec0c15e27975da071241e8b90ec7cb5cfc2090cb6302a8b1e`. The app in it has the
 code directory hash `a9a59f259cc3528af70e43abbed537cb544186b0`. It is signed with a Developer ID,
 with the hardened runtime, and was notarized by Apple. It was made from this source: a comparison
@@ -273,7 +273,7 @@ These checks were made on 2026-11-13 on the Mac that built it, with no roaster i
 
 ### Hardware run with the signed build
 
-The disk image was downloaded from the published pre-release with Safari and the app was put into
+The disk image was downloaded from the published release with Safari and the app was put into
 `/Applications` at 22:02:53 on the build Mac. The installed app and the running process both carry
 the hash above. Same Mac (macOS 27.2), same Kaleido M2 Lite, idle, heater off; Artisan 5.0.0, Comm
 Port set to the virtual port. Both startup options were on. Everything in this subsection is about
@@ -354,7 +354,7 @@ Hardware results exist for three packaged builds, two local ad hoc builds and th
 - `7630086f5c8316900d0bbec2ef9a310eb11cfe2b`, the later ad hoc test build of this source: the
   first connection after a start, **OFF → ON**, **⌘Q → relaunch → ON**, and the app opening at
   login.
-- `a9a59f259cc3528af70e43abbed537cb544186b0`, the signed build of the 0.2.0 pre-release: the app opening at
+- `a9a59f259cc3528af70e43abbed537cb544186b0`, the signed build of the 0.2.0 release: the app opening at
   login, the bridge starting by itself, the first readings, **OFF → ON** and
   **⌘Q → relaunch → ON**. See
   [The signed build](#the-signed-build).

@@ -20,7 +20,7 @@ Artisan  <-->  virtual port (~/.kaleido-bridge/cu.Roaster_bridge)  <-->  this ap
   Artisan crashes or the Bluetooth link is lost while it is heating has not been verified, with or
   without the bridge.
 - **It is not suitable for unattended operation.** Stay with the roaster while it is hot.
-- **The download is a pre-release.** A disk image for Apple silicon, signed with a Developer ID
+- **The download was checked on one Mac.** A disk image for Apple silicon, signed with a Developer ID
   and notarized by Apple, is on the
   [Releases](https://github.com/JohnBThomas/kaleido-serial-bridge/releases) page. It was checked
   on the Mac that built it and nowhere else. See [Evidence](#evidence).
@@ -61,7 +61,7 @@ close it, so there is no second open.
 Hardware results and simulator results are kept apart. Details, with timelines:
 [docs/EVIDENCE.md](docs/EVIDENCE.md).
 
-**The signed download** — the disk image of the 0.2.0 pre-release, signed with a Developer ID and
+**The signed download** — the disk image of the 0.2.0 release, signed with a Developer ID and
 notarized by Apple. The app in it has the CDHash `a9a59f259cc3528af70e43abbed537cb544186b0`.
 
 - Gatekeeper accepted the notarized disk image, and a quarantined copy of the app, on the Mac that

@@ -1,8 +1,8 @@
 # Changelog
 
-## 0.2.0 — 2026-11-13, pre-release
+## 0.2.0 — 2026-11-13
 
-First version as a macOS menu bar app. Offered as a pre-release: a disk image for Apple silicon,
+First version as a macOS menu bar app. Offered as a download: a disk image for Apple silicon,
 signed with a Developer ID and notarized by Apple.
 
 - The signed disk image (app CDHash `a9a59f259cc3528af70e43abbed537cb544186b0`): Gatekeeper

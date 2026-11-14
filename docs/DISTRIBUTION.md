@@ -3,11 +3,12 @@
 **Release policy:** a binary is offered only as a disk image that is signed with a Developer ID,
 notarized by Apple and stapled, and only after the checks in step 3 have passed on the Mac that
 built it. Releases are verified on that one Mac and with one roaster, because the author has no
-other. For that reason a release is published as a **pre-release**, and its release notes say that
-it was checked on the build Mac only. No check on a second Mac is planned. The pre-release mark
-stays until someone else reports the download working on their own Mac.
+other. No check on a second Mac is planned. A release is published as an ordinary release, and
+its release notes say that it was checked on the build Mac only. The version number below 1.0 and
+the notes carry the caution; GitHub's pre-release mark is kept for betas and release candidates.
 
-Version 0.2.0 is such a pre-release. What was and was not checked for it is listed under
+Version 0.2.0 was first published as a pre-release, on 2026-11-13, and the mark was removed the
+same day when this policy was settled. What was and was not checked for it is listed under
 [State of 0.2.0](#state-of-020).
 
 ## Local test build
@@ -99,12 +100,12 @@ Before the first release, also decide on:
    Both should answer `accepted` and `source=Notarized Developer ID`. Neither this nor a download
    on the build Mac shows what a Mac that has never seen the app will do.
 
-5. Publish the disk image together with the `SHA256SUMS.txt` from step 3, as a pre-release. With both files in one folder, a download can be
+5. Publish the disk image together with the `SHA256SUMS.txt` from step 3. With both files in one folder, a download can be
    checked with `shasum -a 256 -c SHA256SUMS.txt`.
 
 ## State of 0.2.0
 
-The disk image of the 0.2.0 pre-release was built, signed, notarized and stapled on 2026-11-13. It
+The disk image of the 0.2.0 release was built, signed, notarized and stapled on 2026-11-13. It
 has the SHA-256 `8d93e48150a8d98ec0c15e27975da071241e8b90ec7cb5cfc2090cb6302a8b1e`. The app in it
 has the CDHash `a9a59f259cc3528af70e43abbed537cb544186b0`.
 
