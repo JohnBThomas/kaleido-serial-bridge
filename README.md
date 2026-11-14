@@ -280,6 +280,8 @@ The app does not reset Bluetooth, reopen the port or start again by itself.
 
 ### Guided recovery: Reset Bluetooth & Restart Bridge
 
+An illustrated walk-through, with screenshots: [Troubleshooting guide](docs/TROUBLESHOOTING.md).
+
 Steps 3 and 4 can also be done from the app. The Help window (the alert's **Help** button, or
 Help in the menu) has a **Reset Bluetooth & Restart Bridge** button. It works only while the
 bridge is stopped, and it never stops a running bridge. One click makes one attempt:
