@@ -14,7 +14,9 @@ writes `dist/KaleidoSerialBridge-<version>-arm64.dmg`. The app is built with PyI
 contains its own Python, pyserial and PyObjC; it needs nothing on the target Mac. Without a signing
 identity it is signed ad hoc: it runs on the Mac it was built on, and on other Macs only after the
 user allows it in **System Settings » Privacy & Security » Open Anyway**. Such a build is for your
-own testing and is not published.
+own testing and is not published. Before keeping a local test image, give it a name that says what
+it is, for example `KaleidoSerialBridge-<version>-arm64-adhoc-local-test.dmg`: a release build
+writes to the same path and would replace it.
 
 Check a build with
 
@@ -68,14 +70,18 @@ Before the first release, also decide on:
    ```
 
    This submits the disk image, waits for the result, staples the ticket to it and asks Gatekeeper
-   for its verdict. If notarization fails, `xcrun notarytool log <submission id> --keychain-profile
-   "kaleido-bridge-notary"` lists the files it objects to.
+   for its verdict. Only when all of that has passed does it write `SHA256SUMS.txt` next to the
+   disk image and check it with `shasum -a 256 -c SHA256SUMS.txt`. Stapling changes the file, so a
+   checksum taken before it would not match the image that gets published. If notarization fails,
+   `xcrun notarytool log <submission id> --keychain-profile "kaleido-bridge-notary"` lists the
+   files it objects to.
 
 4. Test the stapled disk image on a second Mac, or on this one after
    `xattr -w com.apple.quarantine "0081;00000000;Safari;" <the dmg>`: it must open without a
    Gatekeeper warning.
 
-5. Publish the disk image together with its SHA-256 (`shasum -a 256`).
+5. Publish the disk image together with the `SHA256SUMS.txt` from step 3. With both files in one
+   folder, a download can be checked with `shasum -a 256 -c SHA256SUMS.txt`.
 
 ## Notes
 

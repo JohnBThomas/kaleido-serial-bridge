@@ -288,7 +288,7 @@ class TestStopping:
         wait_for(lambda: not delegate.controller.poll().attached)
         delegate.stopBridge_(None)
         message, text, buttons, critical = delegate.ask.shown[-1]
-        assert message == 'Stop the bridge?' and 'Bluetooth has been reset' in text and buttons == ['Stop Bridge', 'Cancel'] and not critical
+        assert message == 'Stop the bridge?' and 'restart of the Mac' in text and buttons == ['Stop Bridge', 'Cancel'] and not critical
         assert not delegate.controller.poll().running
         wait_for(lambda: sim.links() == ['up', 'down'])
         assert sim.commands()[-1] == '{[CL AR]}'
@@ -375,6 +375,9 @@ class TestFailureAlerts:
         topics = {topic.title: topic.body for topic in guide.help_topics('/dev/cu.Roaster_SRSv6')}
         silent = topics['No readings after Start']
         assert 'Reset Bluetooth yourself' in silent and 'never resets Bluetooth' in silent
+        # the advice promises nothing: a restart helped on the tested setup, and one first start after a restart still failed
+        assert 'worked each time' not in silent and 'not every time' in silent
+        assert 'No reset is known to bring the connection back every time' in silent
         back = topics['Back to direct Bluetooth']
         assert 'artisan-direct.aset' in back and '/dev/cu.Roaster_SRSv6' in back and guide.ARTISAN_PORT_MENU in back
         assert 'has not been verified' in topics['What the bridge does and does not do']

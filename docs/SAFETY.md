@@ -12,8 +12,9 @@ each situation, with a direct Bluetooth connection and through the bridge.
 
 ## Rules the bridge follows
 
-1. Bytes are passed on unchanged. Towards the roaster, whole command lines only, in order, each at
-   most once. A command Artisan had not finished writing is never sent.
+1. Artisan's commands and the roaster's replies are forwarded without changing their content. A
+   command is held until its line is complete and is then sent whole, in order, at most once. A
+   command Artisan had not finished writing is never sent.
 2. The bridge never sends anything of its own to the roaster: no ping, no keep-alive, no `CL AR`,
    no replay. It never answers Artisan on behalf of the roaster.
 3. Whatever arrives from the roaster while no client is attached, or before a new client has sent

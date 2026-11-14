@@ -32,9 +32,9 @@ def setup_steps(device: str) -> list[Step]:
              'like a Kaleido are listed first; the choice is yours and is remembered.'),
         Step('start', 'Start the bridge',
              'In Artisan, click OFF first.\n\n'
-             'On the setup this was developed on, macOS connected the roaster only on the first open of its port after a '
-             'restart or a Bluetooth reset. Let that first open be the bridge: it opens the port once and keeps it open, '
-             'while Artisan comes and goes.\n\n'
+             'On the setup this was developed on, macOS connected the roaster only on a first open of its port after a '
+             'restart or a Bluetooth reset, and not on every one of those. Let that first open be the bridge: it opens the '
+             'port once and keeps it open, while Artisan comes and goes.\n\n'
              f'After Start, "Waiting for Bluetooth" is normal for about {BLUETOOTH_USUAL} seconds. '
              'If it stays for a minute, see "No Readings?" in the menu.'),
         Step('artisan', 'Point Artisan at the virtual port',
@@ -63,17 +63,19 @@ def help_topics(device: str) -> list[Topic]:
         Topic('No readings after Start',
               'The menu shows "Waiting for Bluetooth" for more than a minute, or "No replies from the roaster" while '
               'Artisan shows no temperatures.\n\n'
-              'Most likely macOS did not connect the roaster for this open of its port. On the tested setup that happened when '
-              'the port had already been opened and closed since the last restart or Bluetooth reset, by Artisan or by an earlier '
-              'start of the bridge. Waiting did not help there, and neither did clicking ON again.\n\n'
+              'Most likely macOS did not connect the roaster for this open of its port. On the tested setup that happened on '
+              'opens after the port had been closed, by Artisan or by an earlier start of the bridge, and also on some first '
+              'opens after a reset. Waiting did not help there, and neither did clicking ON again.\n\n'
               '1.  In Artisan, click OFF.\n'
               '2.  Stop the bridge.\n'
-              '3.  Reset Bluetooth yourself. On the tested Mac, restarting the Mac worked each time. Turning Bluetooth off and on '
-              'again is quicker, but was not enough there; restarting the Bluetooth service in Terminal with '
-              '"sudo pkill -x bluetoothd" and then turning Bluetooth off and on did work.\n'
-              '4.  Start the bridge and wait for "Waiting for Artisan".\n'
+              '3.  Reset Bluetooth yourself. Restarting the Mac is the reset that helped on the tested setup, but not every '
+              'time: one first start after a restart still did not connect. Restarting the Bluetooth service in Terminal with '
+              '"sudo pkill -x bluetoothd", or turning Bluetooth off and on, did not get the bridge connected there.\n'
+              '4.  Start the bridge and wait for "Waiting for Artisan". If the menu stays at "Waiting for Bluetooth" for more '
+              'than a minute, stop the bridge and restart the Mac once more.\n'
               '5.  In Artisan, click ON.\n\n'
-              'The bridge never resets Bluetooth and never reopens the port on its own.'),
+              'No reset is known to bring the connection back every time. The bridge never resets Bluetooth and never reopens '
+              'the port on its own.'),
         Topic('Back to direct Bluetooth',
               '1.  In Artisan, click OFF.\n'
               '2.  Stop the bridge. This closes the roaster\'s port.\n'
@@ -105,8 +107,8 @@ STOP_WHILE_ATTACHED = (
 
 STOP_IDLE = (
     'Stop the bridge?',
-    "This closes the roaster's Bluetooth port. macOS may not connect the roaster again on the next start "
-    'until Bluetooth has been reset.')
+    "This closes the roaster's Bluetooth port. macOS may not connect the roaster again on the next start. "
+    'On the tested setup that took a restart of the Mac, and one restart was not always enough.')
 
 FAILURE_ADVICE = {
     'setup': 'Nothing was changed. Check that Bluetooth is on, the roaster is paired and switched on, and that Artisan '

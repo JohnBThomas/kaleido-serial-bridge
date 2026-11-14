@@ -34,11 +34,11 @@ Bluetooth), Artisan showed temperatures on the first ON after a restart, and non
 **OFF → ON** or **quit → relaunch → ON**, until Bluetooth was reset. Others report the same in
 [artisan#1705](https://github.com/artisan-roaster-scope/artisan/issues/1705).
 
-In the logs captured on that setup, Artisan closed the roaster's serial port in order, macOS
-closed the Bluetooth connection, and on the next open of the port macOS's Bluetooth service
-logged no new connection attempt: the port opened, Artisan's pings were accepted, and nothing came
-back. The bridge is built on that observation: it opens the port once and does not close it, so
-there is no second open.
+In the failed reopen that was captured on that setup, Artisan had closed the roaster's serial port
+in order and macOS had closed the Bluetooth connection. During the next open of the port, no new
+RFCOMM attempt appeared in the macOS log: the port opened, Artisan's pings were accepted, and
+nothing came back. The bridge is built on that observation: it opens the port once and does not
+close it, so there is no second open.
 
 ## Evidence
 
@@ -50,11 +50,24 @@ roaster idle, heater off:
 
 - The **Terminal prototype** (version 0.1.0 of the bridge) passed **OFF → ON** and
   **⌘Q → relaunch → ON**: temperatures returned both times, with one open of the physical port.
-  The successful run started after a Mac restart.
-- The **packaged menu bar app** (0.2.0, a local ad hoc signed build) forwarded real temperature
-  data, handled a clean Artisan detach, and kept the same physical serial port open for the next
-  attach. The sequence the logs establish for the app is **OFF → ON**. ⌘Q → relaunch → ON has not
-  been run with the packaged app.
+  The successful run started after a Mac restart. Four earlier starts that day got no replies,
+  three of them directly after a reset of Bluetooth.
+- The **packaged menu bar app**, 0.2.0, was run as two local ad hoc signed builds that differ in
+  texts only. Each result belongs to the build it was obtained with.
+  - Build with the CDHash `bab9676fa030389d71bddd6b3565767a7014e9d3`: it forwarded real
+    temperature data, handled a clean Artisan detach, and kept the same physical serial port open
+    for the next attach. The sequence the logs establish for it is **OFF → ON**, and only that. It
+    did so twice, the second time after an 84-minute session. An earlier start of that build, the
+    first after another restart of the Mac, did not lead to a connection.
+  - Build with the CDHash `7630086f5c8316900d0bbec2ef9a310eb11cfe2b`, the current local test
+    build of this source: the **first connection** after a start, **OFF → ON**,
+    **⌘Q → relaunch → ON**, and the **app opening at login**. The tester saw each of these work,
+    and the logs confirm each: replies returned every time, through one open of the physical port
+    and one Bluetooth connection.
+
+**Pending on hardware:** the bridge starting by itself when the app opens. The tester reports that
+it did with the build `7630086f…`, but the logs of that run show the bridge being started from the
+menu, so it is not counted as verified.
 
 **With a simulated roaster** — no hardware involved: 72 automated tests of the bridge, the status
 logic and the app's menu, setup guide and alerts; a check that runs the packaged app by itself;
@@ -63,7 +76,6 @@ and a run of unmodified Artisan 5.0.0 source through the prototype bridge.
 **Not verified:**
 
 - other Kaleido models, other Macs and other macOS versions
-- opening the app at login
 - behavior during an Artisan crash or a loss of the Bluetooth link **while the roaster is heating**
 - the Bluetooth link staying up for hours with no Artisan attached
 - a signed and notarized build
@@ -111,8 +123,9 @@ menu (**Setup Guide…**).
    already reads the roaster over Bluetooth, it is paired.
 2. **Choose the roaster's serial port.** Ports whose name looks like a Kaleido, such as
    `Roaster_SRSv6`, are listed first. You pick the exact port; the choice is remembered.
-3. **Start the bridge.** Click OFF in Artisan first. After Start, "Waiting for Bluetooth" was
-   normal for about 13 seconds on the tested Mac.
+3. **Start the bridge.** Click OFF in Artisan first. After Start, the menu shows "Waiting for
+   Bluetooth" for a while. In the one Terminal run where this was timed, macOS reported the
+   roaster as connected about 13 seconds after the start.
 4. **Point Artisan at the virtual port.** In Artisan open **Config » Port… » ET/BT » Comm Port**,
    paste the path the guide shows (there is a Copy button) and click OK. Leave the rest of the
    Kaleido serial setup as it is (57600, 8, N, 1). Then click ON.
@@ -145,15 +158,21 @@ can tell the roaster that it is leaving. Click OFF in Artisan first.
 
 - **Roaster's serial port** — can be changed while the bridge is stopped.
 - **Start the bridge when the app opens** — off by default. Starting opens the Bluetooth port, and
-  that should happen when you intend it.
-- **Open the app at login** — off by default, and not yet tested. It uses the login item service
-  of macOS; the app then appears in **System Settings » General » Login Items**.
+  that should happen when you intend it. Confirmed with the simulator only; on hardware it is
+  still pending (see [Evidence](#evidence)).
+- **Open the app at login** — off by default. It worked on hardware with one ad hoc build; a build
+  with another signature needs its own test. It uses the login item service of macOS; the app then
+  appears in **System Settings » General » Login Items**. This opens the app and nothing more: the
+  bridge starts at login only if the option above is on as well.
 
 ### Using it
 
 On the tested setup the sequence that worked was: restart the Mac, start the bridge once, wait for
-"Waiting for Artisan", then use Artisan as usual. Stopping the bridge closes the roaster's port;
-on that setup the next open of the port then got no replies until Bluetooth was reset.
+"Waiting for Artisan", then use Artisan as usual. Three of the four starts that directly followed a
+restart connected; one did not, and the next start after one more restart did. Stopping the
+bridge closes the roaster's port. On that setup the opens of the port that followed got no
+replies, including opens after a restart of the Bluetooth service or after turning Bluetooth off
+and on.
 
 ## Manual recovery: no readings
 
@@ -161,19 +180,24 @@ The menu shows "Waiting for Bluetooth" for more than a minute, or "No replies fr
 and Artisan shows no temperatures.
 
 Most likely macOS did not connect the roaster for this open of its port. On the tested setup that
-happened when the port had already been opened and closed since the last restart or Bluetooth
-reset, by Artisan or by an earlier start of the bridge. Waiting did not help there, and neither
-did clicking ON again.
+happened on opens after the port had been closed, by Artisan or by an earlier start of the bridge.
+It also happened on first opens after a reset of Bluetooth, and once on the first open after a
+restart of the Mac. Waiting did not help there, and neither did clicking ON again.
 
 1. In Artisan, click OFF.
 2. Stop the bridge.
-3. Reset Bluetooth yourself. On the tested Mac, restarting the Mac worked each time. Turning
-   Bluetooth off and on again is quicker but was not enough there; restarting the Bluetooth
-   service in Terminal with `sudo pkill -x bluetoothd` and then turning Bluetooth off and on did work.
-4. Start the bridge and wait for "Waiting for Artisan".
+3. Reset Bluetooth yourself. Restarting the Mac is the reset that helped on the tested setup, but
+   not every time: three of the four starts that directly followed a restart connected, and the
+   one that did not was followed by a connection after one more restart. Restarting the Bluetooth
+   service in Terminal with `sudo pkill -x bluetoothd` was followed by a connection once, with
+   Artisan connected directly, and by silent starts of the bridge twice. Turning Bluetooth off and
+   on was followed by a silent start the one time it is in the logs.
+4. Start the bridge and wait for "Waiting for Artisan". If the menu stays at "Waiting for
+   Bluetooth" for more than a minute, stop the bridge and restart the Mac once more.
 5. In Artisan, click ON.
 
-The app never resets Bluetooth and never reopens the port on its own.
+No reset is known to bring the connection back every time. The app never resets Bluetooth and
+never reopens the port on its own.
 
 ## Switching back to direct Bluetooth
 
@@ -186,9 +210,10 @@ The app never resets Bluetooth and never reopens the port on its own.
 
 ## What it does and does not do
 
-- It passes bytes between Artisan and the roaster unchanged, including Artisan's own safety
-  commands (`SC AR` when Artisan connects, `CL AR` when it disconnects). Towards the roaster it
-  passes whole command lines only, in order, each at most once.
+- It forwards Artisan's commands to the roaster and the roaster's replies to Artisan without
+  changing their content, including Artisan's own safety commands (`SC AR` when Artisan connects,
+  `CL AR` when it disconnects). A command is held until its line is complete and is then sent
+  whole, in order, at most once. Replies that arrive while no Artisan is listening are discarded.
 - It never sends anything of its own to the roaster. It never answers Artisan for the roaster,
   never repeats a command, and never keeps the roaster's safety guard alive when Artisan is gone.
 - It opens the roaster's port once per start and never reopens it. It never changes Bluetooth
