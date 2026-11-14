@@ -548,6 +548,61 @@ being switched off and on. One run; it does not show that the restart alone is e
 Not shown: the exact text the app displayed for each failure (the app does not log it), Touch ID
 in the dialog, and the focus result as the tester saw it.
 
+### Guided recovery after a loss of power: notarized build `5bdc6388…`
+
+One run, on 2026-11-14, with the Developer ID signed, hardened runtime, notarized test build of
+commit `50e0101aa87f73f611019dee59f71cd4b764c661` (disk image
+`KaleidoSerialBridge-0.2.0-guided-recovery-readiness-33113035ff06-devid-notarized-test-arm64.dmg`,
+SHA-256 `c238b6dfba6ffe37b2ea344a18e8834bc0c6fd33c6ed7e0506ef6467082dfc08`), installed in
+`/Applications`. The installed app and the running process (pid 16692, started 01:42:18) both have
+the code directory hash `5bdc6388ab1cfbe23a2dff12c673cc092f86685e`. Everything in this section is
+about that build. M2 Lite idle, heater off; Artisan 5.0.0, the installed app. This build logs
+every recovery step to the app log, so the app's own account of each step is on record and is
+compared with the macOS log.
+
+**Result: a guided recovery after a loss of power worked.** The tester observed it, and the logs
+confirm each part of it.
+
+| Time | Source | Event |
+|---|---|---|
+| 01:42:40 – 01:43:08 | app log, macOS log | recovery 1, before the power was unplugged (the bridge had been stopped at 01:41:42 by the previous app): service restarted, power cycle completed, the bridge started at 01:42:56.542, RFCOMM connected at 01:42:57.618, replies received at 01:43:08. Not the result of this section, but the start of the run |
+| 01:43:07 | Artisan log, app log | **ON**. Session 1 attaches; 549 bytes of replies in the first 15 seconds |
+| 01:43:35.96 | macOS Bluetooth log | the last data from the roaster before the stop |
+| 01:43:40.970 | app log | "CONNECTION LOST during an active session", with "The roaster had not answered for 5.0 s before that (3 commands unanswered)". The bridge closes the roaster's port and stops with exit code 4 |
+| 01:43:41.933 | macOS Bluetooth log | the Bluetooth connection to the roaster ends |
+| 01:44:37.391 | app log | **recovery 2: begun by the user** |
+| 01:44:37.955 – 01:44:40.115 | macOS log, app log | the authorization dialog, which SecurityAgent marked "AEWP notarized 1, biometry prohibited 0", succeeds; the app logs "authorization granted" at 01:44:40.262 |
+| 01:44:40.202 | macOS log | `bluetoothd` restarts (a new process). It reports Bluetooth on at 01:44:41.648 |
+| 01:44:42.078 | app log | "**Bluetooth service restarted** (bluetoothd is running and Bluetooth reports on, after 1.8 s)" |
+| 01:44:42.531 – 01:44:42.572 | macOS log | the app's request to turn Bluetooth off, the first one, is followed by Bluetooth off 41 ms later. No retry was needed |
+| 01:44:46.030 – 01:44:46.313 | macOS log | its request to turn Bluetooth on, again the first one, is followed by Bluetooth on |
+| 01:44:46.543 | app log | "**Bluetooth power cycle completed** (on again after 1 request(s))" |
+| 01:44:52.543 | app log | the roaster's serial port exists |
+| 01:44:53.043 – 01:44:53.058 | app log | "starting on /dev/cu.Roaster_SRSv6"; "real port … opened" at 01:44:53.048; "**bridge started**; waiting for the user to click ON in Artisan" |
+| 01:44:53.035 – 01:44:53.607 | macOS Bluetooth log | RFCOMM connection attempt for that open, reported connected 0.57 s later |
+| 01:45:01, 01:45:06 | Artisan log | **OFF**, **ON** |
+| 01:45:06.176 | app log | session 1 attaches: "real port open for 13 s, opened once, never reopened" |
+| 01:45:07.047 | app log | "**roaster replies received** through the bridge; recovery succeeded". 549 bytes of replies in the first 15 seconds, by the macOS log |
+| 01:47:03.050 | Artisan log, app log | **OFF**. Session 1 detaches, clean, after 116.9 s: 81 commands, 4,446 bytes of replies |
+| 01:47:15.277 | app log | the tester stops the bridge: "real port … closed after 142 s. It was opened once and never reopened." |
+
+| Check | Reported by the tester | Confirmed by the logs |
+|---|---|---|
+| Guided recovery after the loss of power | it worked | **Yes.** Recovery 2 went through every step and ended with "recovery succeeded" |
+| The Bluetooth service restarted | not something the tester can see | **Yes.** A new `bluetoothd` at 01:44:40.202, in the macOS log; "Bluetooth service restarted" in the app log |
+| Bluetooth switched off and on again | not something the tester can see | **Yes.** Off at 01:44:42.572 and on at 01:44:46.313, each right after the app's first request; no request was rejected and none was repeated |
+| The bridge opened the physical port once after the reset | not something the tester can see | **Yes.** One "real port … opened" line between the reset and the stop, at 01:44:53.048; "opened once, never reopened" at the attach and at the close. One RFCOMM connection, from 01:44:53.607 until the close |
+| Roaster replies resumed | not reported separately | **Yes.** 549 bytes in the first 15 seconds after ON, and 4,446 bytes in the session |
+| Touch ID offered and used in the administrator prompt | not reported | **Not confirmed.** SecurityAgent marked both prompts as eligible for Touch ID ("biometry prohibited 0"). Whether it was offered or used is not in the log |
+| Focus in Artisan's Space | not reported | **Not confirmed.** Left for the tester's observation |
+
+What this run does not show:
+
+- Anything with the heater on, or on another Mac or roaster.
+- How often this works. One recovery after a loss of power succeeded, with no retry needed; the
+  retry itself has been exercised with the simulator only.
+- When the power was unplugged and when it came back; neither is in any log.
+
 ## Pending
 
 Hardware results exist for three packaged builds, two local ad hoc builds and the signed build:
@@ -563,14 +618,17 @@ Hardware results exist for three packaged builds, two local ad hoc builds and th
 
 Still pending:
 
-- The guided Bluetooth recovery on hardware. With the notarized test build `3195ebea…` two guided
-  attempts after a loss of power failed at the power switch, and a manual start recovered; see
+- The guided Bluetooth recovery on hardware: Touch ID offered and usable in the administrator
+  prompt, and focus staying in Artisan's Space, both await the tester's observation. A guided
+  recovery after a loss of power worked once with the notarized build `5bdc6388…`; see
+  [that run](#guided-recovery-after-a-loss-of-power-notarized-build-5bdc6388). With the earlier
+  build `3195ebea…` two guided attempts failed at the power switch; see
   [that run](#guided-recovery-notarized-test-build-two-guided-failures-then-manual-recovery).
-  A successful guided recovery after a loss of power is still pending, and so are the tester's
-  results on Touch ID and on focus.
 - The new alert wording ("Connection lost during an active session. The bridge stopped.") in a
-  packaged build. It has been run on hardware only from source, at commit `f1825c9`, in one idle
-  power-loss test; see [that section](#idle-power-loss-test-with-source-commit-f1825c9).
+  published build. On hardware it has been run from source at commit `f1825c9`, and in the
+  notarized test builds `3195ebea…` and `5bdc6388…`, where the logs show the stop and its reason;
+  see [that section](#idle-power-loss-test-with-source-commit-f1825c9) and the guided recovery
+  runs below it.
 - The bridge starting by itself with the ad hoc build `7630086f…`: reported, but the logs of that
   run show a start from the menu. It is confirmed for the signed build, and with the simulator.
 

@@ -17,8 +17,13 @@
   outcome goes to bridge.log. It refuses to run while the bridge is running; the stop after a
   connection loss is unchanged. The power switch uses an undocumented IOBluetooth function.
   The simulator tests and the packaged checks passed (test build app CDHash
-  `1640c79eab7c23259790e6a65d27cfbdd95110de`). **Pending on hardware:** the administrator prompt,
-  the Bluetooth reset and a recovery on the M2 Lite. **Untested:** the hardened runtime.
+  `1640c79eab7c23259790e6a65d27cfbdd95110de`). On hardware, with the notarized test build of
+  commit `50e0101` (app CDHash `5bdc6388ab1cfbe23a2dff12c673cc092f86685e`, hardened runtime): one
+  guided recovery after a loss of power on the M2 Lite, idle, heater off, worked; the logs confirm
+  the service restart, the power cycle, one open of the roaster's port and replies. An earlier
+  notarized build (`3195ebea…`) failed twice at the power switch, which led to the readiness fix.
+  **Pending:** whether the administrator prompt offers Touch ID and it can be used, and whether
+  focus stays in Artisan's Space.
 - The alert for a session that ends without `CL AR` now reads "Connection lost during an active
   session. The bridge stopped." instead of "Artisan vanished mid-session". The bridge sees only
   that Artisan's virtual port closed during a session; it cannot tell a crash from Artisan giving
