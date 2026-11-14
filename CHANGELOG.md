@@ -13,10 +13,10 @@
   logs confirm the stop and its reason. **No packaged or signed build of this change exists yet;
   verification of one is pending.**
 - Recovery help: after the roaster has been switched on again, starting the bridge alone may not
-  reconnect. In one idle power-loss test on an M2 Lite, a start of the bridge alone got no replies;
-  a manual Bluetooth reset (restart of the Bluetooth service, then Bluetooth off and on) followed by
-  a new start did. That is one attempt, not a rule. The app still does not reset Bluetooth or
-  reconnect by itself.
+  reconnect. In both observed idle power-loss tests on one M2 Lite, a start of the bridge alone got
+  no replies, and a manual Bluetooth reset (restart of the Bluetooth service, then Bluetooth off and
+  on) followed by a new start of the bridge restored readings. Two tests on one roaster are not a
+  guarantee. The reset stays manual: the app does not reset Bluetooth or reconnect by itself.
 - docs/EVIDENCE.md records two idle power-loss tests: the first with the signed 0.2.0 build, which
   showed the old wording, and a repeat from source at commit `f1825c9`, which showed the new one.
   In both, a start of the bridge without a Bluetooth reset got no replies, and a start after the

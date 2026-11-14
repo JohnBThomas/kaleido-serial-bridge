@@ -201,8 +201,8 @@ On the tested setup the sequence that worked was: restart the Mac, start the bri
 restart connected; one did not, and the next start after one more restart did. Stopping the
 bridge closes the roaster's port. On that setup the opens of the port that followed got no
 replies, including opens after a restart of the Bluetooth service or after turning Bluetooth off
-and on. The one exception on record followed both, one after the other, after the roaster had lost
-power.
+and on. The exceptions on record, in two idle power-loss tests, followed both, one after the other,
+after the roaster had lost power.
 
 ## Manual recovery: no readings
 
@@ -222,8 +222,9 @@ restart of the Mac. Waiting did not help there, and neither did clicking ON agai
    service in Terminal with `sudo pkill -x bluetoothd` was followed by a connection once, with
    Artisan connected directly, and by silent starts of the bridge twice. Turning Bluetooth off and
    on, on its own, was followed by a silent start the one time it is in the logs. Doing both, the
-   service restart and then Bluetooth off and on, was followed by a connection the one time it was
-   tried, after the roaster had lost power (see the next section).
+   service restart and then Bluetooth off and on, followed by a new start of the bridge, restored
+   readings both times it was tried, each time after the roaster had lost power (see the next
+   section).
 4. Start the bridge and wait for "Waiting for Artisan". If the menu stays at "Waiting for
    Bluetooth" for more than a minute, stop the bridge and restart the Mac once more.
 5. In Artisan, click ON.
@@ -249,11 +250,13 @@ Then:
 1. In Artisan, click OFF.
 2. Check the roaster. If it was switched off or lost power, switch it on again.
 3. Reset Bluetooth yourself before starting the bridge again. After the roaster has been switched
-   on again, starting the bridge alone may not reconnect. On the tested setup, after the roaster
-   had been unplugged and plugged in again while idle, a start of the bridge alone got no replies.
-   What worked, in that one test: restart the Bluetooth service with `sudo pkill -x bluetoothd`,
-   wait until Bluetooth is back, turn Bluetooth off, wait two seconds, and turn it on again. See
-   [docs/EVIDENCE.md](docs/EVIDENCE.md#idle-power-loss-test).
+   on again, starting the bridge alone may not reconnect. On the tested M2 Lite the roaster was
+   unplugged and plugged in again while idle twice, and both times a start of the bridge alone got
+   no replies. In both tests this manual reset, followed by a new start of the bridge, restored
+   readings: restart the Bluetooth service with `sudo pkill -x bluetoothd`, wait until Bluetooth
+   is back, turn Bluetooth off, wait two seconds, and turn it on again. Two tests on one roaster
+   are not a guarantee. See [docs/EVIDENCE.md](docs/EVIDENCE.md#idle-power-loss-test) and
+   [its repeat from source](docs/EVIDENCE.md#idle-power-loss-test-with-source-commit-f1825c9).
 4. Start the bridge and wait for "Waiting for Artisan".
 5. In Artisan, click ON.
 

@@ -386,7 +386,7 @@ class TestFailureAlerts:
         assert 'vanished' not in stops
         # switching the roaster on again may need a manual Bluetooth reset; the bridge does none itself
         assert 'starting the bridge alone may not reconnect' in stops and 'Reset Bluetooth yourself before' in stops
-        assert 'sudo pkill -x bluetoothd' in stops and 'in that one test' in stops
+        assert 'sudo pkill -x bluetoothd' in stops and 'In both tests this manual reset' in stops and 'not a guarantee' in stops
         assert 'does not reset Bluetooth, reopen the port or start again on its own' in stops
         back = topics['Back to direct Bluetooth']
         assert 'artisan-direct.aset' in back and '/dev/cu.Roaster_SRSv6' in back and guide.ARTISAN_PORT_MENU in back
