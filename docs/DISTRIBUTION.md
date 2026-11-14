@@ -2,9 +2,10 @@
 
 **Release policy:** a binary is offered only as a disk image that is signed with a Developer ID,
 notarized by Apple and stapled, and only after the checks in step 3 have passed on the Mac that
-built it. Until that image has also been installed and opened on a second Mac (step 4), it is
-published as a **pre-release**, and its release notes say that it was checked on the build Mac
-only. The pre-release mark comes off after the second-Mac check.
+built it. Releases are verified on that one Mac and with one roaster, because the author has no
+other. For that reason a release is published as a **pre-release**, and its release notes say that
+it was checked on the build Mac only. No check on a second Mac is planned. The pre-release mark
+stays until someone else reports the download working on their own Mac.
 
 Version 0.2.0 is such a pre-release. What was and was not checked for it is listed under
 [State of 0.2.0](#state-of-020).
@@ -38,8 +39,8 @@ python tests/packaged_app_check.py "$TMPDIR/kaleido-serial-bridge-build/dist/Kal
 | The Team ID | developer.apple.com » Membership |
 | Credentials for the notary service: an Apple ID with an **app-specific password** (appleid.apple.com), or an App Store Connect API key | stored once in the keychain, see below |
 
-For 0.2.0 all of these were in place, and the steps below were run on 2026-11-13, except step 4
-on a second Mac. They follow Apple's and PyInstaller's documented procedure.
+For 0.2.0 all of these were in place, and the steps below were run on 2026-11-13. Step 4 was done
+on the build Mac only. They follow Apple's and PyInstaller's documented procedure.
 `security find-identity -v -p codesigning` shows whether the certificate and its key are usable.
 
 Before the first release, also decide on:
@@ -81,12 +82,13 @@ Before the first release, also decide on:
    `xcrun notarytool log <submission id> --keychain-profile "kaleido-bridge-notary"` lists the
    files it objects to.
 
-4. Test the stapled disk image on a second Mac: download it through a browser, open it, drag the
-   app into Applications and open it from there. It must open without a Gatekeeper refusal. Until
-   this has been done, the release stays a pre-release.
+4. Test the stapled disk image the way a user gets it: download it through a browser, open it,
+   drag the app into Applications and open it from there. It must open without a Gatekeeper
+   refusal. A second Mac is the better place for this. With one Mac, do it on the build Mac and
+   say so in the release notes.
 
-   On the build Mac alone, Gatekeeper's verdict can be asked without opening the app, for the disk
-   image and for a copy of the app that is marked as downloaded:
+   Gatekeeper's verdict can also be asked without opening the app, for the disk image and for a
+   copy of the app that is marked as downloaded:
 
    ```
    spctl --assess --type open --context context:primary-signature -vv <the dmg>
@@ -94,11 +96,10 @@ Before the first release, also decide on:
    spctl --assess --type execute -vv <that copy>
    ```
 
-   Both should answer `accepted` and `source=Notarized Developer ID`. This does not replace the
-   second Mac.
+   Both should answer `accepted` and `source=Notarized Developer ID`. Neither this nor a download
+   on the build Mac shows what a Mac that has never seen the app will do.
 
-5. Publish the disk image together with the `SHA256SUMS.txt` from step 3, as a pre-release if
-   step 4 has not been done on a second Mac. With both files in one folder, a download can be
+5. Publish the disk image together with the `SHA256SUMS.txt` from step 3, as a pre-release. With both files in one folder, a download can be
    checked with `shasum -a 256 -c SHA256SUMS.txt`.
 
 ## State of 0.2.0
@@ -114,7 +115,8 @@ has the CDHash `a9a59f259cc3528af70e43abbed537cb544186b0`.
 | Gatekeeper on the notarized disk image, on the build Mac | accepted |
 | Gatekeeper on a quarantined copy of the app, on the build Mac | accepted |
 | `shasum -a 256 -c SHA256SUMS.txt` | OK |
-| Installation on a second Mac | **not tested** |
+| Download with a browser, installation and first open on the build Mac | done; Gatekeeper accepted it |
+| Installation on a second Mac | **not tested, and not planned**: the author has one Mac |
 | First launch without a network connection | **not tested** |
 | Operation with a roaster | one M2 Lite, idle, heater off, on the build Mac: opening at login, automatic bridge start, live readings, OFF → ON and ⌘Q → relaunch → ON confirmed by the logs. See [EVIDENCE.md](EVIDENCE.md) |
 

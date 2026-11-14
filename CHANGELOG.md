@@ -10,7 +10,8 @@ signed with a Developer ID and notarized by Apple.
   ticket is stapled to the disk image. On one M2 Lite, idle, heater off: the app opened at login, the
   bridge started by itself, live readings arrived, and they returned after OFF → ON and after
   ⌘Q → relaunch → ON, each seen by the tester and confirmed by the logs.
-  Not tested: installation on a second Mac and a first launch without a network connection. The
+  Not tested: installation on a second Mac (not planned; the author has one) and a first launch
+  without a network connection. The
   hardware results further down belong to earlier ad hoc builds.
 - Menu bar status: stopped, waiting for Bluetooth, waiting for Artisan, Artisan attached and
   waiting for the first reply, receiving roaster replies, no replies, stopped after a failure.

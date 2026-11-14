@@ -323,7 +323,8 @@ were short: two minutes and ten seconds.
 
 ### Not tested with this build
 
-- installation on a second Mac
+- installation on a second Mac. This is not planned: the author has one Mac. The signed build was
+  downloaded with a browser, installed and opened on the build Mac
 - a first launch without a network connection
 - anything with the heater on, and any roaster other than this one M2 Lite
 
@@ -375,7 +376,8 @@ Until these have been run, nothing here says that they work.
   reported no error, the bridge kept running, and the app showed "Waiting for Bluetooth"
 - the link staying up for hours with no Artisan attached. In the one case on record it ended 6.5
   minutes after the last traffic, and the logs do not show why
-- the signed build on a second Mac, and its first launch without a network connection
+- the signed build on a second Mac (not planned: the author has one Mac), and its first launch
+  without a network connection
 
 ## Repeating the hardware test
 

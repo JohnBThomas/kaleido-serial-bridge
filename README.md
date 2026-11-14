@@ -70,7 +70,8 @@ notarized by Apple. The app in it has the CDHash `a9a59f259cc3528af70e43abbed537
   the bridge started by itself, live readings arrived, and they returned after **OFF → ON** and
   after **⌘Q → relaunch → ON**, through one open of the physical port. The tester saw the readings
   each time, and the logs confirm each of these.
-- Not tested: installation on a second Mac, and a first launch without a network connection.
+- Not tested: installation on a second Mac, and a first launch without a network connection. The
+  author has one Mac, so the first is not planned; a report from another Mac is welcome.
 
 **On hardware** — one Kaleido M2 Lite, one Apple silicon MacBook Pro, macOS 27.2, Artisan 5.0.0,
 roaster idle, heater off:
@@ -104,7 +105,8 @@ and a run of unmodified Artisan 5.0.0 source through the prototype bridge.
 - other Kaleido models, other Macs and other macOS versions
 - behavior during an Artisan crash or a loss of the Bluetooth link **while the roaster is heating**
 - the Bluetooth link staying up for hours with no Artisan attached
-- the signed download on a second Mac, and its first launch without a network connection
+- the signed download on a second Mac (not planned: the author has one), and its first launch
+  without a network connection
 
 ## Requirements
 
