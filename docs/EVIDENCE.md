@@ -594,7 +594,7 @@ confirm each part of it.
 | The bridge opened the physical port once after the reset | not something the tester can see | **Yes.** One "real port … opened" line between the reset and the stop, at 01:44:53.048; "opened once, never reopened" at the attach and at the close. One RFCOMM connection, from 01:44:53.607 until the close |
 | Roaster replies resumed | not reported separately | **Yes.** 549 bytes in the first 15 seconds after ON, and 4,446 bytes in the session |
 | Touch ID offered and used in the administrator prompt | the tester saw Touch ID in the administrator prompt and used it successfully to authorize the Bluetooth reset (direct observation) | **Corroborated, not identified.** SecurityAgent marked both prompts as eligible for Touch ID ("AEWP notarized 1, biometry prohibited 0"), `coreauthd` started a Touch ID match for each when the dialog appeared (01:42:41.407, 01:44:37.972), and both authorizations succeeded. The log does not identify which credential completed them |
-| Focus in Artisan's Space | not reported | **Not confirmed.** Left for the tester's observation |
+| Focus and Spaces during recovery 2 | the connection-loss alert appeared in Artisan's Space. Clicking Help switched to the main desktop. After the Bluetooth reset macOS switched back to Artisan, and the bridge was waiting for Artisan; OFF, then ON in Artisan restored live ET and BT. The completion update left the tester in Artisan's Space; the Help window, returned to by hand, was still open and said "Readings are back" | **Consistent.** The alert made the app the front app at 01:43:41.083 with no change of Space. At 01:44:01.617, when Help was clicked, the Dock switched to Space 1 "for window … ordered on non-visible space" of this app: the Help window was on Space 1, and bringing it forward took the tester there. At 01:44:40.127, right after the authorization succeeded, macOS brought Artisan forward and the Dock switched to Artisan's Space (60); that comes from the authorization dialog closing, not from this app. Artisan OFF at 01:45:01 and ON at 01:45:06; replies at 01:45:07. Around the completion the log shows no change of Space and no activation by this app; the tester changed Spaces by gesture at 01:45:00 and 01:45:10 |
 
 What this run does not show:
 
@@ -618,9 +618,11 @@ Hardware results exist for three packaged builds, two local ad hoc builds and th
 
 Still pending:
 
-- The guided Bluetooth recovery on hardware: focus staying in Artisan's Space awaits the tester's
-  observation. With the notarized build `5bdc6388…` the tester saw and used Touch ID successfully
-  in the administrator prompt, and a guided recovery after a loss of power worked once; see
+- The guided Bluetooth recovery: with the notarized build `5bdc6388…` the tester saw and used
+  Touch ID successfully in the administrator prompt, a guided recovery after a loss of power
+  worked once, and the completion update left the tester in Artisan's Space. Open: the Help button
+  of the connection-loss alert switched to the Space where the Help window was, not the one the
+  tester was in; see
   [that run](#guided-recovery-after-a-loss-of-power-notarized-build-5bdc6388). With the earlier
   build `3195ebea…` two guided attempts failed at the power switch; see
   [that run](#guided-recovery-notarized-test-build-two-guided-failures-then-manual-recovery).
