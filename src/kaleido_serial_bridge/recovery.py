@@ -6,8 +6,11 @@ The sequence is the manual reset that worked on the tested M2 Lite after a loss 
 2. restart the Bluetooth service (bluetoothd). This needs administrator rights: macOS shows its
    standard authorization dialog, and only that one command runs as root. The app itself keeps
    running as the user.
-3. wait until the service answers again
-4. switch Bluetooth off, wait at least two seconds, switch it on
+3. wait until the service is back and Bluetooth reports "on". Only then does macOS accept a
+   power request: right after the restart the app's own connection to Bluetooth is still being
+   re-established, and a request sent then is rejected (seen on hardware on 2026-11-14).
+4. switch Bluetooth off, wait at least two seconds, switch it on. A power request that has no
+   effect is repeated every few seconds, within the time limit of that step
 5. wait until the roaster's serial port exists again
 6. start the bridge, once
 7. wait for real replies from the roaster after the user clicks ON in Artisan
@@ -19,6 +22,11 @@ failed step. Nothing here runs by itself: an attempt begins only when the user a
 Switching Bluetooth off and on uses IOBluetoothPreferenceSetControllerPowerState, a function of
 macOS's IOBluetooth framework that Apple does not document (blueutil uses the same one). If it is
 missing or does not change the state in time, that step fails and the manual steps are shown.
+
+Every step, retry and outcome is written to the bridge's log (bridge.log), with four milestones
+named as such: "Bluetooth service restarted", "Bluetooth power cycle completed", "bridge started"
+and "roaster replies received". No password ever passes through the app; nothing of the
+authorization but its outcome is logged.
 
 The parts that touch macOS are in MacSystem; tests replace it.
 """
@@ -35,9 +43,11 @@ from enum import Enum
 from typing import Any, Protocol
 
 from .controller import BridgeController, State
+from .engine import log
 
-SERVICE_TIMEOUT = 20.0     # for bluetoothd to answer again after the restart
+SERVICE_TIMEOUT = 20.0     # for bluetoothd to be back with Bluetooth reporting "on" after the restart
 POWER_OFF_TIMEOUT = 10.0   # for Bluetooth to report "off"
+POWER_RETRY = 2.0          # a power request without effect is repeated after this long, within the step's limit
 POWER_OFF_HOLD = 2.0       # Bluetooth stays off at least this long, as in the manual reset
 POWER_ON_TIMEOUT = 15.0    # for Bluetooth to report "on"
 PORT_TIMEOUT = 45.0        # for macOS to create the roaster's serial port again
@@ -102,7 +112,9 @@ class Recovery:
         self.detail = ''
         self.attempts = 0
         self.since = 0.0        # when the current step began
-        self.off_at = 0.0       # when Bluetooth was switched off
+        self.off_at: float | None = None  # when Bluetooth was first seen off in this attempt
+        self.requested_at = 0.0  # when the last power request was sent
+        self.requests = 0        # power requests sent in the current step
 
     # ---- for the app
 
@@ -119,6 +131,8 @@ class Recovery:
             return False
         self.attempts += 1
         self.phase = Phase.RUNNING
+        self.off_at = None
+        log.info('recovery %d: begun by the user', self.attempts)
         self._enter(Step.CHECK_STOPPED, 'Checking that the bridge is stopped.')
         return True
 
@@ -145,46 +159,81 @@ class Recovery:
     def _restart_service(self) -> None:
         outcome = self.system.restart_service()
         if outcome.cancelled:
+            log.info('recovery %d: authorization cancelled by the user', self.attempts)
             self._fail('The authorization was cancelled. Nothing was changed.')
         elif not outcome.ok:
             self._fail(f'The Bluetooth service could not be restarted: {outcome.message or "no reason given"}.')
         else:
-            self._enter(Step.WAIT_SERVICE, 'Waiting for the Bluetooth service to come back.')
+            log.info('recovery %d: authorization granted; restart of the Bluetooth service requested', self.attempts)
+            self._enter(Step.WAIT_SERVICE, 'Waiting for the Bluetooth service to come back with Bluetooth on.')
 
     def _wait_service(self) -> None:
-        if self.system.service_running() and self.system.power_state() is not None:
+        running = self.system.service_running()
+        power = self.system.power_state() if running else None
+        if running and power is True:
+            log.info('recovery %d: Bluetooth service restarted (bluetoothd is running and Bluetooth reports on, after %.1f s)',
+                     self.attempts, self._elapsed())
             self._enter(Step.POWER_OFF, 'Turning Bluetooth off.')
         elif self._elapsed() > SERVICE_TIMEOUT:
-            self._fail(f'The Bluetooth service did not answer within {SERVICE_TIMEOUT:.0f} s.')
+            seen = 'not running' if not running else ('power state unreadable' if power is None else 'Bluetooth reports off')
+            self._fail(f'The Bluetooth service did not come back with Bluetooth on within {SERVICE_TIMEOUT:.0f} s ({seen}).')
 
     def _power_off(self) -> None:
-        if not self.system.set_power(False):
+        self.requests = 0
+        if not self._request_power(False):
             self._fail('macOS did not accept the request to turn Bluetooth off.')
             return
-        self.off_at = self.clock()
         self._enter(Step.WAIT_OFF, 'Waiting for Bluetooth to turn off.')
 
     def _wait_off(self) -> None:
-        if self.system.power_state() is False and self.clock() - self.off_at >= POWER_OFF_HOLD:
-            self._enter(Step.POWER_ON, 'Turning Bluetooth on.')
+        power = self.system.power_state()
+        if power is False:
+            if self.off_at is None:
+                self.off_at = self.clock()
+                log.info('recovery %d: Bluetooth reports off, after %d request(s)', self.attempts, self.requests)
+            if self.clock() - self.off_at >= POWER_OFF_HOLD:
+                self._enter(Step.POWER_ON, 'Turning Bluetooth on.')
         elif self._elapsed() > POWER_OFF_TIMEOUT:
-            self._fail(f'Bluetooth did not report "off" within {POWER_OFF_TIMEOUT:.0f} s.')
+            self._fail(f'Bluetooth did not report "off" within {POWER_OFF_TIMEOUT:.0f} s, after {self.requests} request(s).')
+        elif self.clock() - self.requested_at >= POWER_RETRY:
+            log.warning('recovery %d: the request to turn Bluetooth off had no effect after %.1f s; sending it again',
+                        self.attempts, self.clock() - self.requested_at)
+            if not self._request_power(False):
+                self._fail('macOS did not accept the request to turn Bluetooth off.')
 
     def _power_on(self) -> None:
-        if not self.system.set_power(True):
+        self.requests = 0
+        if not self._request_power(True):
             self._fail('macOS did not accept the request to turn Bluetooth on. Turn it on in Control Center.')
             return
         self._enter(Step.WAIT_ON, 'Waiting for Bluetooth to turn on.')
 
     def _wait_on(self) -> None:
         if self.system.power_state() is True:
+            log.info('recovery %d: Bluetooth power cycle completed (on again after %d request(s))', self.attempts, self.requests)
             self._enter(Step.WAIT_PORT, "Waiting for the roaster's serial port.")
         elif self._elapsed() > POWER_ON_TIMEOUT:
-            self._fail(f'Bluetooth did not report "on" within {POWER_ON_TIMEOUT:.0f} s. Turn it on in Control Center.')
+            self._fail(f'Bluetooth did not report "on" within {POWER_ON_TIMEOUT:.0f} s, after {self.requests} request(s). '
+                       'Turn it on in Control Center.')
+        elif self.clock() - self.requested_at >= POWER_RETRY:
+            # Bluetooth left off would also disconnect keyboards and mice: the request to turn it on is repeated too.
+            log.warning('recovery %d: the request to turn Bluetooth on had no effect after %.1f s; sending it again',
+                        self.attempts, self.clock() - self.requested_at)
+            if not self._request_power(True):
+                self._fail('macOS did not accept the request to turn Bluetooth on. Turn it on in Control Center.')
+
+    def _request_power(self, on: bool) -> bool:
+        self.requests += 1
+        self.requested_at = self.clock()
+        accepted = self.system.set_power(on)
+        log.info('recovery %d: request %d to turn Bluetooth %s%s', self.attempts, self.requests, 'on' if on else 'off',
+                 '' if accepted else ' could not be sent')
+        return accepted
 
     def _wait_port(self) -> None:
         device = self.controller.settings.device
         if self.system.port_exists(device):
+            log.info("recovery %d: the roaster's serial port %s exists", self.attempts, device)
             self._enter(Step.START_BRIDGE, 'Starting the bridge.')
         elif self._elapsed() > PORT_TIMEOUT:
             self._fail(f'{device} did not appear within {PORT_TIMEOUT:.0f} s. Is the roaster switched on and paired?')
@@ -194,6 +243,7 @@ class Recovery:
         if not started:
             self._fail(f'The bridge could not be started: {problem}')
             return
+        log.info('recovery %d: bridge started; waiting for the user to click ON in Artisan', self.attempts)
         self.phase = Phase.WAITING_FOR_ARTISAN
         self._enter(Step.WAIT_REPLIES, 'The bridge has started. In Artisan, click ON. Waiting for replies from the roaster.')
 
@@ -204,6 +254,7 @@ class Recovery:
         if status.state is State.RECEIVING:
             self.phase = Phase.SUCCEEDED
             self.detail = 'Recovered: replies from the roaster are arriving through the bridge.'
+            log.info('recovery %d: roaster replies received through the bridge; recovery succeeded', self.attempts)
         elif not alive and not status.running:
             self._fail(f'The bridge stopped before the roaster answered: {status.headline} {status.detail}'.strip())
         elif self._elapsed() > REPLY_TIMEOUT:
@@ -212,6 +263,7 @@ class Recovery:
     # ---- bookkeeping
 
     def _enter(self, step: Step, detail: str) -> None:
+        log.info('recovery %d: step: %s', self.attempts, step.value)
         self.step_now = step
         self.detail = detail
         self.since = self.clock()
@@ -222,6 +274,9 @@ class Recovery:
     def _fail(self, detail: str) -> None:
         self.phase = Phase.FAILED
         self.detail = detail
+        log.error('recovery %d: failed at "%s": %s The bridge was %s by the recovery.', self.attempts,
+                  self.step_now.value if self.step_now is not None else 'start', detail,
+                  'started' if self.step_now is Step.WAIT_REPLIES else 'not started')
 
 
 # ---- macOS

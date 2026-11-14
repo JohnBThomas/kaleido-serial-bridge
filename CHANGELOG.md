@@ -10,7 +10,11 @@
   Every wait has a limit; a cancelled authorization or a failed step stops the attempt, names the
   step and shows the manual steps. The confirmation is a sheet on the Help window, and all status
   ("Click ON in Artisan", "Readings are back", failures) is shown in that window, with a Done
-  button; the recovery never activates the app or opens an alert after the confirmation. It refuses to run while the bridge is running; the stop after a
+  button; the recovery never activates the app or opens an alert after the confirmation.
+  After the restart of the Bluetooth service it waits until Bluetooth reports on before asking to
+  turn it off, and repeats a power request without effect every 2 s within the step's limit (on
+  hardware a request sent too early was rejected and two attempts failed). Every step, retry and
+  outcome goes to bridge.log. It refuses to run while the bridge is running; the stop after a
   connection loss is unchanged. The power switch uses an undocumented IOBluetooth function.
   The simulator tests and the packaged checks passed (test build app CDHash
   `1640c79eab7c23259790e6a65d27cfbdd95110de`). **Pending on hardware:** the administrator prompt,

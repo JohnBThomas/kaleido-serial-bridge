@@ -10,7 +10,10 @@ records what it was asked to do. The bridge itself is real, on the simulated roa
 from __future__ import annotations
 
 import sys
+import logging
 from pathlib import Path
+
+import pytest
 
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / 'src'))
@@ -48,6 +51,12 @@ class FakeSystem:
         self.power_follows = True          # the switch takes effect
         self.accept_power = True
         self.port_back_after: float | None = 1.0  # seconds after Bluetooth is on again; None: never
+        # As seen on hardware: after the restart the service is back before it is ready. Until then Bluetooth does not
+        # report "on", and a power request is ignored (macOS: "can only accept this command while in the powered on state").
+        self.ready_after = 0.0             # seconds after the restart; None: never
+        self.ignore_off_requests = 0       # this many power-off requests have no effect even when ready
+        self.ignore_on_requests = 0
+        self.unready_reads: bool | None = False  # what the power state reads as while the service is not ready yet
         self.restarted_at: float | None = None
         self.on_at: float | None = None
 
@@ -61,13 +70,27 @@ class FakeSystem:
         return (self.restarted_at is not None and self.service_back_after is not None
                 and self.clock() - self.restarted_at >= self.service_back_after)
 
+    def ready(self) -> bool:
+        return (self.service_running() and self.ready_after is not None and self.restarted_at is not None
+                and self.clock() - self.restarted_at >= self.ready_after)
+
     def power_state(self) -> bool | None:
-        return self.power if self.service_running() else None
+        if not self.service_running():
+            return None
+        return self.power if self.ready() else self.unready_reads
 
     def set_power(self, on: bool) -> bool:
         self.calls.append(f'set_power({on})')
         if not self.accept_power:
             return False
+        if not self.ready():
+            return True  # sent, and ignored
+        if not on and self.ignore_off_requests:
+            self.ignore_off_requests -= 1
+            return True
+        if on and self.ignore_on_requests:
+            self.ignore_on_requests -= 1
+            return True
         if self.power_follows:
             self.power = on
             if on:
@@ -151,13 +174,24 @@ class TestOneAttempt:
         assert system.calls == ['restart_service']
         assert not controller.running() and sim.links() == []
 
-    def test_timeout_when_bluetooth_does_not_turn_off(self, controller: BridgeController) -> None:
+    def test_timeout_when_bluetooth_does_not_turn_off(self, controller: BridgeController, sim: SimRoaster,
+                                                      caplog: pytest.LogCaptureFixture) -> None:
         recovery, system, clock = make_recovery(controller)
-        system.power_follows = False  # the private function had no effect
+        system.power_follows = False  # every request is ignored
         recovery.begin()
-        run(recovery, clock, {Phase.FAILED})
-        assert recovery.step_now is Step.WAIT_OFF
-        assert system.calls == ['restart_service', 'set_power(False)'] and not controller.running()
+        with caplog.at_level(logging.INFO, logger='kaleido_bridge'):
+            run(recovery, clock, {Phase.FAILED})
+        assert recovery.step_now is Step.WAIT_OFF and 'did not report "off" within 10 s' in recovery.detail
+        requests = system.calls.count('set_power(False)')
+        limit = recovery_module.POWER_OFF_TIMEOUT / recovery_module.POWER_RETRY + 1
+        assert 2 <= requests <= limit  # retried, at a bounded interval, within the step's limit
+        assert f'after {requests} request(s)' in recovery.detail
+        assert 'set_power(True)' not in system.calls and system.calls.count('restart_service') == 1  # one authorization
+        assert not controller.running() and sim.links() == []
+        text = caplog.text
+        assert text.count('sending it again') == requests - 1
+        assert 'failed at "Wait for Bluetooth to turn off"' in text and 'The bridge was not started by the recovery.' in text
+        assert 'Bluetooth power cycle completed' not in text and 'bridge started' not in text
 
     def test_power_switch_unavailable(self, controller: BridgeController) -> None:
         recovery, system, clock = make_recovery(controller)
@@ -198,6 +232,119 @@ class TestOneAttempt:
         assert recovery.step_now is Step.WAIT_REPLIES and 'still running' in recovery.detail
         wait_for(lambda: sim.links() == ['up'], what='the port to be seen open')
         assert controller.running() and sim.links() == ['up']  # not stopped by the recovery
+
+
+class TestReadinessAndRetries:
+    """What went wrong on hardware on 2026-11-14, and what the recovery now does about it."""
+
+    def test_power_off_waits_until_bluetooth_reports_on(self, controller: BridgeController, caplog: pytest.LogCaptureFixture) -> None:
+        recovery, system, clock = make_recovery(controller)
+        system.ready_after = 4.0  # the service process is back at once, but ready only after 4 s
+        recovery.begin()
+        with caplog.at_level(logging.INFO, logger='kaleido_bridge'):
+            run(recovery, clock, {Phase.WAITING_FOR_ARTISAN, Phase.FAILED}, step=0.1)
+        assert recovery.phase is Phase.WAITING_FOR_ARTISAN
+        # no power request was sent before the service was ready, so none was wasted
+        assert system.calls == ['restart_service', 'set_power(False)', 'set_power(True)']
+        assert system.restarted_at is not None and system.on_at is not None
+        assert 'sending it again' not in caplog.text
+        assert 'Bluetooth service restarted (bluetoothd is running and Bluetooth reports on, after 4.' in caplog.text
+
+    def test_service_back_but_never_ready_times_out_without_power_requests(self, controller: BridgeController, sim: SimRoaster) -> None:
+        recovery, system, clock = make_recovery(controller)
+        system.ready_after = None
+        recovery.begin()
+        run(recovery, clock, {Phase.FAILED})
+        assert recovery.step_now is Step.WAIT_SERVICE and 'Bluetooth reports off' in recovery.detail
+        assert system.calls == ['restart_service'] and not controller.running() and sim.links() == []
+
+    def test_an_ignored_first_power_off_request_is_sent_again(self, controller: BridgeController, sim: SimRoaster,
+                                                            caplog: pytest.LogCaptureFixture) -> None:
+        recovery, system, clock = make_recovery(controller)
+        system.ignore_off_requests = 1
+        recovery.begin()
+        with caplog.at_level(logging.INFO, logger='kaleido_bridge'):
+            run(recovery, clock, {Phase.WAITING_FOR_ARTISAN, Phase.FAILED}, step=0.1)
+        assert recovery.phase is Phase.WAITING_FOR_ARTISAN
+        assert system.calls == ['restart_service', 'set_power(False)', 'set_power(False)', 'set_power(True)']  # one retry, then on
+        assert system.on_at is not None and recovery.off_at is not None
+        assert system.on_at - recovery.off_at >= recovery_module.POWER_OFF_HOLD  # the hold counts from "off", not the request
+        text = caplog.text
+        assert text.count('request to turn Bluetooth off had no effect') == 1
+        assert 'Bluetooth reports off, after 2 request(s)' in text
+        wait_for(lambda: sim.links() == ['up'], what='one start of the bridge')
+
+    def test_an_ignored_power_on_request_is_sent_again(self, controller: BridgeController) -> None:
+        recovery, system, clock = make_recovery(controller)
+        system.ignore_on_requests = 1
+        recovery.begin()
+        run(recovery, clock, {Phase.WAITING_FOR_ARTISAN, Phase.FAILED}, step=0.1)
+        assert recovery.phase is Phase.WAITING_FOR_ARTISAN
+        assert system.calls == ['restart_service', 'set_power(False)', 'set_power(True)', 'set_power(True)']
+
+    @pytest.mark.parametrize('unready_reads', [True, False, None], ids=['stale-on', 'off', 'unreadable'])
+    def test_the_hardware_failure_of_2026_11_14_now_recovers(self, controller: BridgeController, sim: SimRoaster,
+                                                            unready_reads: bool | None) -> None:
+        """The service is back within a second but ready only about half a second later. A power request sent into that
+        gap was rejected and the attempt failed. What the power state read as during the gap is not in the macOS log, so
+        all three possibilities are tried; with a stale "on" the first request may still be lost, and the retry covers it."""
+        recovery, system, clock = make_recovery(controller)
+        system.service_back_after = 0.1
+        system.ready_after = 1.5
+        system.unready_reads = unready_reads
+        recovery.begin()
+        run(recovery, clock, {Phase.WAITING_FOR_ARTISAN, Phase.FAILED}, step=0.5)
+        assert recovery.phase is Phase.WAITING_FOR_ARTISAN, recovery.detail
+        assert 1 <= system.calls.count('set_power(False)') <= 2 and system.calls.count('restart_service') == 1
+        assert controller.running()
+        wait_for(lambda: sim.links() == ['up'], what='one start of the bridge')
+
+    def test_the_old_check_would_have_failed_here(self, controller: BridgeController, monkeypatch: pytest.MonkeyPatch) -> None:
+        """Guards the test above: without the retry, a stale "on" during the gap loses the only power-off request."""
+        monkeypatch.setattr(recovery_module, 'POWER_RETRY', 1e9)  # no retry
+        recovery, system, clock = make_recovery(controller)
+        system.service_back_after = 0.1
+        system.ready_after = 1.5
+        system.unready_reads = True
+        recovery.begin()
+        run(recovery, clock, {Phase.WAITING_FOR_ARTISAN, Phase.FAILED}, step=0.5)
+        assert recovery.phase is Phase.FAILED and recovery.step_now is Step.WAIT_OFF
+
+
+class TestLogging:
+
+    def test_a_successful_attempt_logs_the_four_milestones_in_order(self, controller: BridgeController,
+                                                                   caplog: pytest.LogCaptureFixture) -> None:
+        recovery, _system, clock = make_recovery(controller)
+        with caplog.at_level(logging.INFO, logger='kaleido_bridge'):
+            recovery.begin()
+            run(recovery, clock, {Phase.WAITING_FOR_ARTISAN})
+            artisan = Artisan(controller.virtual_port)
+            artisan.on()
+            artisan.ask('{[RD A0]}')
+            wait_for(lambda: controller.poll().state is State.RECEIVING, what='replies')
+            recovery.step()
+            artisan.off()
+        assert recovery.phase is Phase.SUCCEEDED
+        text = caplog.text
+        milestones = ['recovery 1: begun by the user', 'authorization granted', 'Bluetooth service restarted', 'request 1 to turn Bluetooth off',
+                      'Bluetooth reports off', 'request 1 to turn Bluetooth on', 'Bluetooth power cycle completed',
+                      "the roaster's serial port", 'bridge started', 'roaster replies received']
+        positions = [text.find(m) for m in milestones]
+        assert all(p >= 0 for p in positions), [m for m, p in zip(milestones, positions, strict=True) if p < 0]
+        assert positions == sorted(positions)
+        assert text.count('step: ') == len(recovery_module.Step)  # every step is logged once
+        for word in ('password', 'credential', 'token'):
+            assert word not in text.lower()
+
+    def test_a_cancelled_authorization_is_logged_without_details(self, controller: BridgeController, caplog: pytest.LogCaptureFixture) -> None:
+        recovery, system, clock = make_recovery(controller)
+        system.restart = Outcome(False, cancelled=True)
+        with caplog.at_level(logging.INFO, logger='kaleido_bridge'):
+            recovery.begin()
+            run(recovery, clock, {Phase.FAILED})
+        assert 'authorization cancelled by the user' in caplog.text
+        assert 'failed at "Restart the Bluetooth service"' in caplog.text and 'not started by the recovery' in caplog.text
 
 
 class TestGuards:

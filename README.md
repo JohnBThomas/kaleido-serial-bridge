@@ -274,7 +274,9 @@ bridge is stopped, and it never stops a running bridge. One click makes one atte
 2. It restarts the Bluetooth service. macOS shows its standard authorization dialog; only this
    one command (`/usr/bin/pkill -x bluetoothd`) runs with administrator rights. The app itself
    keeps running as you.
-3. It waits for the service, turns Bluetooth off, waits two seconds, and turns it on again.
+3. It waits until the service is back and Bluetooth reports on, turns Bluetooth off, waits two
+   seconds, and turns it on again. A power request that has no effect is sent again every two
+   seconds, within the time limit of that step.
 4. It waits for the roaster's serial port to appear, then starts the bridge once.
 5. The Help window shows **Click ON in Artisan**, and **Readings are back** only when replies from
    the roaster arrive through the bridge.
@@ -282,7 +284,9 @@ bridge is stopped, and it never stops a running bridge. One click makes one atte
 Every wait has a time limit. If the authorization is cancelled or a step fails or times out, the
 attempt stops there, and the Help window names the step and shows the manual steps; the bridge is
 not started after a failed step. A second click while an attempt is under way does nothing.
-**Done** closes the window.
+**Done** closes the window. Every step, retry and outcome is written to the log (**Open Log** in
+the menu): "Bluetooth service restarted", "Bluetooth power cycle completed", "bridge started" and
+"roaster replies received" mark how far an attempt got.
 
 After the confirmation, everything the recovery has to say appears in the Help window. It does not
 open alerts, make the app active or bring the window forward, so you can switch to Artisan, in
@@ -348,7 +352,7 @@ Nothing else is installed.
 ## For developers
 
 ```
-python -m pytest                              # 102 tests against a simulated roaster, about 40 s
+python -m pytest                              # 112 tests against a simulated roaster, about 40 s
 ruff check . && mypy && codespell
 packaging/build.sh
 python tests/packaged_app_check.py "$TMPDIR/kaleido-serial-bridge-build/dist/Kaleido Serial Bridge.app"
